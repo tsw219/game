@@ -2,271 +2,387 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>One Day Escape</title>
+<title>Shadow Maze</title>
 
 <style>
-body {
-  margin:0;
-  background:#000;
-  color:#fff;
-  font-family:sans-serif;
-  text-align:center;
+body{
+    margin:0;
+    background:#000;
+    color:white;
+    font-family:sans-serif;
+    text-align:center;
 }
 
-#menu,#game,#clear{
-  display:none;
-  width:100vw;
-  height:100vh;
+canvas{
+    background:#111;
+    border:3px solid #0ff;
+    box-shadow:0 0 20px #0ff;
+    margin-top:10px;
 }
 
-.show{display:block;}
-
-h1{margin-top:20px;}
-
-.stage-btn{
-  display:inline-block;
-  margin:15px;
-  cursor:pointer;
+button{
+    padding:10px 20px;
+    margin:5px;
+    font-size:16px;
+    border:none;
+    border-radius:6px;
+    background:#0ff;
+    cursor:pointer;
 }
 
-.stage-btn canvas{
-  border:3px solid #fff;
+button:hover{
+    background:#6ff;
 }
 
-#gameArea{
-  position:relative;
-  width:90vw;
-  height:80vh;
-  margin:auto;
-  border:3px solid #fff;
-  background:#222;
-  overflow:hidden;
+#title,#gameover{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.9);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
 }
 
-.diff{
-  position:absolute;
-}
+#gameover{display:none;}
+#game{display:none;}
 
-.diff.found{
-  border:2px solid red;
-  background:rgba(255,0,0,0.2);
-}
-
-#timer{font-size:22px;margin:10px;}
+h1{color:#0ff;}
 </style>
 </head>
 
 <body>
 
-<!-- MENU -->
-<div id="menu" class="show">
-<h1>One Day Escape</h1>
-<p>違いを探して脱出せよ</p>
+<!-- タイトル -->
+<div id="title">
+<h1>🌑 Shadow Maze 🌕</h1>
 
-<div class="stage-btn" onclick="startGame('school')">
-<canvas id="c1" width="200" height="140"></canvas>
-<div>学校</div>
+<p>
+▶ ルール ◀<br><br>
+
+・青＝あなた<br>
+・黄色＝ゴール<br>
+・赤＝敵<br><br>
+
+・敵はランダムに動く<br>
+・同じ場所に来たら負け<br><br>
+
+・周りはだんだん暗くなる<br>
+・光の中を進もう！<br><br>
+
+白っぽい＝安全<br>
+黒い＝危険
+</p>
+
+<button onclick="startGame()">スタート</button>
 </div>
 
-<div class="stage-btn" onclick="startGame('home')">
-<canvas id="c2" width="200" height="140"></canvas>
-<div>家</div>
-</div>
 
-<div class="stage-btn" onclick="startGame('library')">
-<canvas id="c3" width="200" height="140"></canvas>
-<div>図書館</div>
-</div>
-
-<div class="stage-btn" onclick="startGame('mall')">
-<canvas id="c4" width="200" height="140"></canvas>
-<div>モール</div>
-</div>
-</div>
-
-<!-- GAME -->
+<!-- ゲーム -->
 <div id="game">
 
-<div id="timer">08:00</div>
+<div>
+レベル：<span id="lv">1</span>
+<button onclick="backTitle()">タイトルへ</button>
+</div>
 
-<div id="gameArea"></div>
-
-<div>発見: <span id="count">0</span>/5</div>
+<canvas id="c" width="500" height="500"></canvas>
 
 </div>
 
-<!-- CLEAR -->
-<div id="clear">
-<h1>ESCAPE!</h1>
-<button onclick="backMenu()">戻る</button>
+
+<!-- ゲームオーバー -->
+<div id="gameover">
+<h1>GAME OVER</h1>
+
+<button onclick="retry()">もう一度</button>
+<button onclick="backTitle()">最初から</button>
 </div>
+
 
 <script>
 
-const menu=document.getElementById("menu");
-const game=document.getElementById("game");
-const clear=document.getElementById("clear");
+// ===================
+// 設定
+// ===================
 
-const gameArea=document.getElementById("gameArea");
-const countText=document.getElementById("count");
-const timerText=document.getElementById("timer");
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
 
-let found=0,time=480,timer;
+const size=25;
+const cols=20;
+const rows=20;
 
-const stages={
+let player;
+let goal;
+let enemies=[];
+let level=1;
+let light=150;
+let playing=false;
 
-school:{
-color:"#3a6",
-diffs:[
-{x:50,y:50,w:60,h:60},
-{x:200,y:120,w:70,h:50},
-{x:350,y:200,w:80,h:60},
-{x:500,y:100,w:60,h:70},
-{x:650,y:250,w:70,h:60}
-]
-},
 
-home:{
-color:"#963",
-diffs:[
-{x:80,y:60,w:70,h:60},
-{x:250,y:150,w:60,h:70},
-{x:400,y:80,w:80,h:60},
-{x:550,y:220,w:60,h:60},
-{x:700,y:140,w:70,h:70}
-]
-},
+// ===================
+// 音
+// ===================
 
-library:{
-color:"#369",
-diffs:[
-{x:60,y:90,w:70,h:60},
-{x:220,y:180,w:60,h:70},
-{x:380,y:120,w:80,h:60},
-{x:540,y:260,w:60,h:60},
-{x:690,y:100,w:70,h:70}
-]
-},
+const audio=new (window.AudioContext||webkitAudioContext)();
 
-mall:{
-color:"#933",
-diffs:[
-{x:100,y:200,w:60,h:70},
-{x:260,y:100,w:70,h:60},
-{x:420,y:250,w:80,h:60},
-{x:580,y:140,w:60,h:70},
-{x:740,y:280,w:70,h:60}
-]
+function sound(f,t){
+    const o=audio.createOscillator();
+    const g=audio.createGain();
+
+    o.connect(g);
+    g.connect(audio.destination);
+
+    o.frequency.value=f;
+    o.start();
+
+    g.gain.exponentialRampToValueAtTime(
+        0.0001,
+        audio.currentTime+t
+    );
+
+    o.stop(audio.currentTime+t);
 }
 
-};
 
-function drawPreview(id,color,text){
+// ===================
+// 開始
+// ===================
 
-const c=document.getElementById(id);
-const ctx=c.getContext("2d");
+function startGame(){
+    document.getElementById("title").style.display="none";
+    document.getElementById("game").style.display="block";
 
-ctx.fillStyle=color;
-ctx.fillRect(0,0,200,140);
-
-ctx.fillStyle="#fff";
-ctx.font="20px sans-serif";
-ctx.fillText(text,50,75);
-
+    level=1;
+    setup();
 }
 
-drawPreview("c1","#3a6","School");
-drawPreview("c2","#963","Home");
-drawPreview("c3","#369","Library");
-drawPreview("c4","#933","Mall");
+
+// ===================
+// 初期化
+// ===================
+
+function setup(){
+
+    player={x:0,y:0};
+
+    goal={x:cols-1,y:rows-1};
+
+    enemies=[];
+
+    for(let i=0;i<level+1;i++){
+        enemies.push({
+            x:Math.floor(Math.random()*cols),
+            y:Math.floor(Math.random()*rows)
+        });
+    }
+
+    light=180-level*15;
+    if(light<60) light=60;
+
+    document.getElementById("lv").textContent=level;
+
+    playing=true;
+
+    sound(600,0.2);
+}
 
 
-function startGame(name){
+// ===================
+// 操作
+// ===================
 
-menu.classList.remove("show");
-game.classList.add("show");
+document.addEventListener("keydown",e=>{
 
-found=0;
-time=480;
-countText.textContent=0;
+    if(!playing) return;
 
-gameArea.innerHTML="";
+    let x=player.x;
+    let y=player.y;
 
-const s=stages[name];
+    if(e.key==="ArrowUp") y--;
+    if(e.key==="ArrowDown") y++;
+    if(e.key==="ArrowLeft") x--;
+    if(e.key==="ArrowRight") x++;
 
-gameArea.style.background=s.color;
+    if(x>=0&&x<cols&&y>=0&&y<rows){
 
-s.diffs.forEach(d=>{
+        player.x=x;
+        player.y=y;
 
-const div=document.createElement("div");
-div.className="diff";
+        sound(400,0.05);
 
-div.style.left=d.x+"px";
-div.style.top=d.y+"px";
-div.style.width=d.w+"px";
-div.style.height=d.h+"px";
-
-div.onclick=()=>{
-
-if(div.classList.contains("found"))return;
-
-div.classList.add("found");
-found++;
-countText.textContent=found;
-
-if(found>=5)clearGame();
-
-};
-
-gameArea.appendChild(div);
+        moveEnemies();
+        check();
+    }
 
 });
 
-startTimer();
+
+// ===================
+// 敵移動
+// ===================
+
+function moveEnemies(){
+
+    enemies.forEach(e=>{
+
+        let d=Math.floor(Math.random()*4);
+
+        if(d===0)e.x++;
+        if(d===1)e.x--;
+        if(d===2)e.y++;
+        if(d===3)e.y--;
+
+        if(e.x<0)e.x=0;
+        if(e.x>=cols)e.x=cols-1;
+        if(e.y<0)e.y=0;
+        if(e.y>=rows)e.y=rows-1;
+
+    });
 
 }
 
-function startTimer(){
 
-clearInterval(timer);
+// ===================
+// 判定
+// ===================
 
-timer=setInterval(()=>{
+function check(){
 
-time--;
+    for(let e of enemies){
 
-let m=Math.floor(time/60);
-let s=time%60;
+        if(e.x===player.x&&e.y===player.y){
+            gameOver();
+            return;
+        }
+    }
 
-timerText.textContent=
-`0${m}:${s<10?"0"+s:s}`;
+    if(player.x===goal.x&&player.y===goal.y){
 
-if(time<=0){
-alert("TIME OVER");
-backMenu();
-}
+        sound(800,0.3);
 
-},1000);
-
-}
-
-function clearGame(){
-
-clearInterval(timer);
-
-game.classList.remove("show");
-clear.classList.add("show");
+        level++;
+        setup();
+    }
 
 }
 
-function backMenu(){
 
-clearInterval(timer);
+// ===================
+// ゲームオーバー
+// ===================
 
-game.classList.remove("show");
-clear.classList.remove("show");
-menu.classList.add("show");
+function gameOver(){
 
+    playing=false;
+
+    sound(200,0.5);
+
+    document.getElementById("gameover").style.display="flex";
 }
+
+
+// ===================
+// 再挑戦
+// ===================
+
+function retry(){
+
+    document.getElementById("gameover").style.display="none";
+
+    setup();
+}
+
+
+// ===================
+// タイトル
+// ===================
+
+function backTitle(){
+
+    playing=false;
+
+    document.getElementById("game").style.display="none";
+    document.getElementById("gameover").style.display="none";
+    document.getElementById("title").style.display="flex";
+}
+
+
+// ===================
+// 描画
+// ===================
+
+function draw(){
+
+    ctx.clearRect(0,0,500,500);
+
+    // 背景
+    ctx.fillStyle="#222";
+    ctx.fillRect(0,0,500,500);
+
+
+    // ゴール
+    ctx.fillStyle="yellow";
+    ctx.fillRect(
+        goal.x*size,
+        goal.y*size,
+        size,size
+    );
+
+
+    // プレイヤー
+    ctx.fillStyle="#0ff";
+    ctx.fillRect(
+        player.x*size,
+        player.y*size,
+        size,size
+    );
+
+
+    // 敵
+    ctx.fillStyle="red";
+
+    enemies.forEach(e=>{
+        ctx.fillRect(
+            e.x*size,
+            e.y*size,
+            size,size
+        );
+    });
+
+
+    // 暗闇（ライト方式）
+    if(playing){
+
+        ctx.fillStyle="rgba(0,0,0,0.9)";
+        ctx.fillRect(0,0,500,500);
+
+        ctx.globalCompositeOperation="destination-out";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            player.x*size+12,
+            player.y*size+12,
+            light,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fill();
+
+        ctx.globalCompositeOperation="source-over";
+    }
+
+
+    requestAnimationFrame(draw);
+}
+
+draw();
 
 </script>
 
