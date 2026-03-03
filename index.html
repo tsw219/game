@@ -2,387 +2,274 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Shadow Maze</title>
+<title>ループ脱出ゲーム</title>
 
 <style>
-body{
-    margin:0;
-    background:#000;
-    color:white;
-    font-family:sans-serif;
-    text-align:center;
+body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #111;
+    color: white;
+    text-align: center;
 }
 
-canvas{
-    background:#111;
-    border:3px solid #0ff;
-    box-shadow:0 0 20px #0ff;
-    margin-top:10px;
+#menu, #game, #clear {
+    display: none;
+    padding: 20px;
 }
 
-button{
-    padding:10px 20px;
-    margin:5px;
-    font-size:16px;
-    border:none;
-    border-radius:6px;
-    background:#0ff;
-    cursor:pointer;
+h1 {
+    color: #4fc3f7;
 }
 
-button:hover{
-    background:#6ff;
+button {
+    padding: 10px 20px;
+    margin: 5px;
+    font-size: 16px;
+    cursor: pointer;
 }
 
-#title,#gameover{
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:rgba(0,0,0,0.9);
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
+#map {
+    margin: 20px auto;
+    display: grid;
+    grid-template-columns: repeat(7, 50px);
+    grid-template-rows: repeat(7, 50px);
+    gap: 2px;
 }
 
-#gameover{display:none;}
-#game{display:none;}
+.cell {
+    width: 50px;
+    height: 50px;
+    background: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 22px;
+}
 
-h1{color:#0ff;}
+.player {
+    background: #4caf50;
+}
+
+.goal {
+    background: gold;
+}
+
+.info {
+    margin-top: 10px;
+}
 </style>
 </head>
 
 <body>
 
-<!-- タイトル -->
-<div id="title">
-<h1>🌑 Shadow Maze 🌕</h1>
+<!-- メニュー画面 -->
+<div id="menu">
+    <h1>🔁 ループ脱出ゲーム</h1>
 
-<p>
-▶ ルール ◀<br><br>
+    <p>
+        同じ1日を繰り返す世界から脱出しよう。<br>
+        違和感を見つけて行動せよ。
+    </p>
 
-・青＝あなた<br>
-・黄色＝ゴール<br>
-・赤＝敵<br><br>
+    <p>
+        🎮 操作：矢印キーで移動
+    </p>
 
-・敵はランダムに動く<br>
-・同じ場所に来たら負け<br><br>
+    <h3>舞台を選択</h3>
 
-・周りはだんだん暗くなる<br>
-・光の中を進もう！<br><br>
-
-白っぽい＝安全<br>
-黒い＝危険
-</p>
-
-<button onclick="startGame()">スタート</button>
+    <button onclick="startGame('school')">🏫 不思議な学校</button>
+    <button onclick="startGame('house')">🏠 ループハウス</button>
+    <button onclick="startGame('mall')">🛍 無限モール</button>
+    <button onclick="startGame('library')">📚 夢の図書館</button>
+    <button onclick="startGame('park')">🌌 時空公園</button>
 </div>
 
-
-<!-- ゲーム -->
+<!-- ゲーム画面 -->
 <div id="game">
 
-<div>
-レベル：<span id="lv">1</span>
-<button onclick="backTitle()">タイトルへ</button>
+    <h2 id="stageName"></h2>
+
+    <div>ループ回数：<span id="loop">1</span></div>
+
+    <div id="map"></div>
+
+    <div class="info" id="message"></div>
+
+    <button onclick="resetLoop()">🔄 やり直す</button>
 </div>
 
-<canvas id="c" width="500" height="500"></canvas>
+<!-- クリア画面 -->
+<div id="clear">
+    <h1>🎉 脱出成功！</h1>
 
+    <p>
+        ループから抜け出した！
+    </p>
+
+    <button onclick="backMenu()">🏠 メニューへ</button>
 </div>
-
-
-<!-- ゲームオーバー -->
-<div id="gameover">
-<h1>GAME OVER</h1>
-
-<button onclick="retry()">もう一度</button>
-<button onclick="backTitle()">最初から</button>
-</div>
-
 
 <script>
 
-// ===================
-// 設定
-// ===================
+const menu = document.getElementById("menu");
+const game = document.getElementById("game");
+const clear = document.getElementById("clear");
 
-const canvas=document.getElementById("c");
-const ctx=canvas.getContext("2d");
+const mapDiv = document.getElementById("map");
+const loopSpan = document.getElementById("loop");
+const stageName = document.getElementById("stageName");
+const message = document.getElementById("message");
 
-const size=25;
-const cols=20;
-const rows=20;
+let player = { x: 3, y: 3 };
+let loopCount = 1;
+let hasStar = false;
+let currentStage = "";
 
-let player;
-let goal;
-let enemies=[];
-let level=1;
-let light=150;
-let playing=false;
+const stages = {
+    school: "🏫 不思議な学校",
+    house: "🏠 ループハウス",
+    mall: "🛍 無限モール",
+    library: "📚 夢の図書館",
+    park: "🌌 時空公園"
+};
 
-
-// ===================
-// 音
-// ===================
-
-const audio=new (window.AudioContext||webkitAudioContext)();
-
-function sound(f,t){
-    const o=audio.createOscillator();
-    const g=audio.createGain();
-
-    o.connect(g);
-    g.connect(audio.destination);
-
-    o.frequency.value=f;
-    o.start();
-
-    g.gain.exponentialRampToValueAtTime(
-        0.0001,
-        audio.currentTime+t
-    );
-
-    o.stop(audio.currentTime+t);
+function showMenu() {
+    menu.style.display = "block";
+    game.style.display = "none";
+    clear.style.display = "none";
 }
 
+function startGame(stage) {
+    currentStage = stage;
+    stageName.textContent = stages[stage];
 
-// ===================
-// 開始
-// ===================
+    loopCount = 1;
+    hasStar = false;
 
-function startGame(){
-    document.getElementById("title").style.display="none";
-    document.getElementById("game").style.display="block";
+    resetPlayer();
 
-    level=1;
-    setup();
+    menu.style.display = "none";
+    game.style.display = "block";
+    clear.style.display = "none";
+
+    update();
 }
 
+function resetPlayer() {
+    player.x = 3;
+    player.y = 3;
+}
 
-// ===================
-// 初期化
-// ===================
+function resetLoop() {
+    loopCount++;
+    hasStar = false;
 
-function setup(){
+    resetPlayer();
+    update();
+}
 
-    player={x:0,y:0};
+function update() {
 
-    goal={x:cols-1,y:rows-1};
+    loopSpan.textContent = loopCount;
 
-    enemies=[];
+    mapDiv.innerHTML = "";
 
-    for(let i=0;i<level+1;i++){
-        enemies.push({
-            x:Math.floor(Math.random()*cols),
-            y:Math.floor(Math.random()*rows)
-        });
+    let starPos = null;
+
+    // 3回目にだけ出現
+    if (loopCount === 3 && !hasStar) {
+        starPos = { x: 1, y: 1 };
     }
 
-    light=180-level*15;
-    if(light<60) light=60;
+    for (let y = 0; y < 7; y++) {
+        for (let x = 0; x < 7; x++) {
 
-    document.getElementById("lv").textContent=level;
+            const cell = document.createElement("div");
+            cell.className = "cell";
 
-    playing=true;
+            if (x === player.x && y === player.y) {
+                cell.classList.add("player");
+                cell.textContent = "🙂";
+            }
 
-    sound(600,0.2);
-}
+            else if (starPos && x === starPos.x && y === starPos.y) {
+                cell.classList.add("goal");
+                cell.textContent = "★";
+            }
 
-
-// ===================
-// 操作
-// ===================
-
-document.addEventListener("keydown",e=>{
-
-    if(!playing) return;
-
-    let x=player.x;
-    let y=player.y;
-
-    if(e.key==="ArrowUp") y--;
-    if(e.key==="ArrowDown") y++;
-    if(e.key==="ArrowLeft") x--;
-    if(e.key==="ArrowRight") x++;
-
-    if(x>=0&&x<cols&&y>=0&&y<rows){
-
-        player.x=x;
-        player.y=y;
-
-        sound(400,0.05);
-
-        moveEnemies();
-        check();
-    }
-
-});
-
-
-// ===================
-// 敵移動
-// ===================
-
-function moveEnemies(){
-
-    enemies.forEach(e=>{
-
-        let d=Math.floor(Math.random()*4);
-
-        if(d===0)e.x++;
-        if(d===1)e.x--;
-        if(d===2)e.y++;
-        if(d===3)e.y--;
-
-        if(e.x<0)e.x=0;
-        if(e.x>=cols)e.x=cols-1;
-        if(e.y<0)e.y=0;
-        if(e.y>=rows)e.y=rows-1;
-
-    });
-
-}
-
-
-// ===================
-// 判定
-// ===================
-
-function check(){
-
-    for(let e of enemies){
-
-        if(e.x===player.x&&e.y===player.y){
-            gameOver();
-            return;
+            mapDiv.appendChild(cell);
         }
     }
 
-    if(player.x===goal.x&&player.y===goal.y){
+    if (loopCount < 3) {
+        message.textContent =
+            "何か違和感がある気がする…。";
+    }
+    else if (!hasStar) {
+        message.textContent =
+            "あの★が気になる…。";
+    }
+    else {
+        message.textContent =
+            "出口が見えてきた…。";
+    }
+}
 
-        sound(800,0.3);
+document.addEventListener("keydown", e => {
 
-        level++;
-        setup();
+    if (game.style.display !== "block") return;
+
+    switch (e.key) {
+
+        case "ArrowUp":
+            if (player.y > 0) player.y--;
+            break;
+
+        case "ArrowDown":
+            if (player.y < 6) player.y++;
+            break;
+
+        case "ArrowLeft":
+            if (player.x > 0) player.x--;
+            break;
+
+        case "ArrowRight":
+            if (player.x < 6) player.x++;
+            break;
     }
 
-}
+    checkEvent();
+    update();
+});
 
+function checkEvent() {
 
-// ===================
-// ゲームオーバー
-// ===================
+    // ★取得
+    if (loopCount === 3 &&
+        player.x === 1 &&
+        player.y === 1 &&
+        !hasStar) {
 
-function gameOver(){
-
-    playing=false;
-
-    sound(200,0.5);
-
-    document.getElementById("gameover").style.display="flex";
-}
-
-
-// ===================
-// 再挑戦
-// ===================
-
-function retry(){
-
-    document.getElementById("gameover").style.display="none";
-
-    setup();
-}
-
-
-// ===================
-// タイトル
-// ===================
-
-function backTitle(){
-
-    playing=false;
-
-    document.getElementById("game").style.display="none";
-    document.getElementById("gameover").style.display="none";
-    document.getElementById("title").style.display="flex";
-}
-
-
-// ===================
-// 描画
-// ===================
-
-function draw(){
-
-    ctx.clearRect(0,0,500,500);
-
-    // 背景
-    ctx.fillStyle="#222";
-    ctx.fillRect(0,0,500,500);
-
-
-    // ゴール
-    ctx.fillStyle="yellow";
-    ctx.fillRect(
-        goal.x*size,
-        goal.y*size,
-        size,size
-    );
-
-
-    // プレイヤー
-    ctx.fillStyle="#0ff";
-    ctx.fillRect(
-        player.x*size,
-        player.y*size,
-        size,size
-    );
-
-
-    // 敵
-    ctx.fillStyle="red";
-
-    enemies.forEach(e=>{
-        ctx.fillRect(
-            e.x*size,
-            e.y*size,
-            size,size
-        );
-    });
-
-
-    // 暗闇（ライト方式）
-    if(playing){
-
-        ctx.fillStyle="rgba(0,0,0,0.9)";
-        ctx.fillRect(0,0,500,500);
-
-        ctx.globalCompositeOperation="destination-out";
-
-        ctx.beginPath();
-
-        ctx.arc(
-            player.x*size+12,
-            player.y*size+12,
-            light,
-            0,
-            Math.PI*2
-        );
-
-        ctx.fill();
-
-        ctx.globalCompositeOperation="source-over";
+        hasStar = true;
+        message.textContent = "★を手に入れた！";
     }
 
+    // 脱出
+    if (hasStar &&
+        player.x === 6 &&
+        player.y === 6) {
 
-    requestAnimationFrame(draw);
+        game.style.display = "none";
+        clear.style.display = "block";
+    }
 }
 
-draw();
+function backMenu() {
+    showMenu();
+}
+
+showMenu();
 
 </script>
 
