@@ -1,235 +1,102 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GOGO! カート・ラッシュ</title>
-    <style>
-        :root {
-            --primary-blue: #00a8ff;
-            --road-grey: #444;
-            --grass-green: #2ecc71;
-            --accent-yellow: #f1c40f;
-        }
-
-        body { margin: 0; background: #2f3640; font-family: 'Hiragino Sans', 'Meiryo', sans-serif; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        #game-outer { position: relative; width: 600px; height: 400px; border: 6px solid #f5f6fa; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        canvas { width: 100%; height: 100%; background: var(--primary-blue); display: block; }
-        
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; z-index: 100; backdrop-filter: blur(5px); }
-        h1 { font-size: 40px; margin-bottom: 20px; color: var(--accent-yellow); text-shadow: 3px 3px 0 #e67e22; transform: italic; }
-        
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-        button { padding: 12px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 50px; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
-        button:active { transform: translateY(3px); box-shadow: none; }
-        
-        .type-red { background: #e84118; color: white; }
-        .type-blue { background: #0097e6; color: white; }
-        .type-green { background: #44bd32; color: white; }
-
-        #hud { position: absolute; top: 15px; left: 15px; color: white; pointer-events: none; }
-        #rank-display { font-size: 48px; font-style: italic; color: var(--accent-yellow); text-shadow: 2px 2px 0 #000; }
-        #item-slot { width: 50px; height: 50px; background: rgba(255,255,255,0.2); border: 3px dashed white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-top: 10px; }
-
-        .hidden { display: none !important; }
-    </style>
+<meta charset="UTF-8">
+<title>影と光の迷路</title>
+<style>
+  body {
+    background: #111;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    height: 100vh;
+    justify-content: center;
+  }
+  canvas {
+    background: #000;
+    border: 3px solid #fff;
+  }
+  h1 {
+    margin-bottom: 10px;
+  }
+  #instructions {
+    font-size: 14px;
+    margin-top: 5px;
+  }
+</style>
 </head>
 <body>
 
-<div id="game-outer">
-    <canvas id="canvas"></canvas>
-    
-    <div id="hud">
-        <div id="rank-display"><span id="rank-num">4</span>位</div>
-        <div id="item-slot">?</div>
-        <div style="margin-top:5px">LAP: <span id="dist-per">0</span>%</div>
-    </div>
-
-    <div id="start-menu" class="overlay">
-        <h1>GOGO! KART RUSH</h1>
-        <p>マシンを選んでスタート！</p>
-        <div class="btn-group">
-            <button class="type-red" onclick="initGame('speed')">⚡ スピード型</button>
-            <button class="type-blue" onclick="initGame('accel')">🚀 加速型</button>
-            <button class="type-green" onclick="initGame('handle')">🌀 ハンドル型</button>
-        </div>
-        <p style="font-size:12px; margin-top:20px;">[←][→]キー または 画面左右クリックで操作</p>
-    </div>
-
-    <div id="result-menu" class="overlay hidden">
-        <h1 id="res-title">FINISH!</h1>
-        <p id="res-msg"></p>
-        <button class="type-blue" onclick="location.reload()">もう一回！</button>
-    </div>
-</div>
+<h1>影と光の迷路</h1>
+<canvas id="game" width="400" height="400"></canvas>
+<div id="instructions">矢印キーで移動。光で道を探せ！</div>
 
 <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 600; canvas.height = 400;
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const SIZE = 20; // マスのサイズ
+const ROWS = canvas.height / SIZE;
+const COLS = canvas.width / SIZE;
 
-    let state = 'MENU';
-    let player = { x: 0, speed: 0, dist: 0, maxSpeed: 40, accel: 0.15, handle: 0.05, color: '#fff', nitro: 0 };
-    let rivals = [];
-    let trackItems = [];
-    let goalDist = 15000;
+let player = {x:1, y:1};
+let lightRadius = 3;
 
-    function initGame(type) {
-        if (type === 'speed')  { player.maxSpeed = 55; player.accel = 0.10; player.handle = 0.04; player.color = '#e84118'; }
-        if (type === 'accel')  { player.maxSpeed = 45; player.accel = 0.25; player.handle = 0.05; player.color = '#0097e6'; }
-        if (type === 'handle') { player.maxSpeed = 42; player.accel = 0.18; player.handle = 0.08; player.color = '#44bd32'; }
+// 迷路ランダム生成（簡易版）
+let maze = [];
+for(let y=0;y<ROWS;y++){
+  maze[y]=[];
+  for(let x=0;x<COLS;x++){
+    if(y===0||x===0||y===ROWS-1||x===COLS-1) maze[y][x]=1; // 壁
+    else maze[y][x]=Math.random()<0.2?1:0; // 20%壁
+  }
+}
+maze[1][1]=0; // プレイヤースタート
+maze[ROWS-2][COLS-2]=0; // ゴール
 
-        rivals = [
-            { x: -0.6, dist: 200, speed: 42, color: '#9c88ff', name: 'パープル・パンサー' },
-            { x: 0.6, dist: 400, speed: 45, color: '#fbc531', name: 'イエロー・ボルト' },
-            { x: 0.1, dist: 100, speed: 38, color: '#7f8c8d', name: 'シルバー・シャドウ' }
-        ];
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-        // アイテムとギミックの配置
-        for(let d=1000; d < goalDist; d+=1500) {
-            trackItems.push({ d: d, x: Math.random()*2-1, type: 'ITEM' });
-            trackItems.push({ d: d + 500, x: Math.random()*2-1, type: 'DASH' });
-        }
-
-        document.getElementById('start-menu').classList.add('hidden');
-        state = 'PLAY';
-        requestAnimationFrame(gameLoop);
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      let dx = x - player.x;
+      let dy = y - player.y;
+      if(Math.sqrt(dx*dx + dy*dy) <= lightRadius){
+        if(maze[y][x]===1) ctx.fillStyle = '#fff';
+        else if(x===COLS-2 && y===ROWS-2) ctx.fillStyle='gold';
+        else ctx.fillStyle = '#444';
+        ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
+      }
     }
+  }
 
-    const keys = { left: false, right: false };
-    window.onkeydown = e => { if(e.key=="ArrowLeft") keys.left=true; if(e.key=="ArrowRight") keys.right=true; };
-    window.onkeyup = e => { if(e.key=="ArrowLeft") keys.left=false; if(e.key=="ArrowRight") keys.right=false; };
-    canvas.onmousedown = e => { if(e.clientX - canvas.getBoundingClientRect().left < 300) keys.left=true; else keys.right=true; };
-    window.onmouseup = () => { keys.left=false; keys.right=false; };
+  // プレイヤー
+  ctx.fillStyle = '#0f0';
+  ctx.fillRect(player.x*SIZE,player.y*SIZE,SIZE,SIZE);
+}
 
-    function gameLoop() {
-        if (state !== 'PLAY') return;
-        update();
-        draw();
-        requestAnimationFrame(gameLoop);
-    }
+document.addEventListener('keydown', e=>{
+  let nx = player.x;
+  let ny = player.y;
+  if(e.key==='ArrowUp') ny--;
+  else if(e.key==='ArrowDown') ny++;
+  else if(e.key==='ArrowLeft') nx--;
+  else if(e.key==='ArrowRight') nx++;
+  if(maze[ny][nx]===0) player={x:nx,y:ny};
 
-    function update() {
-        // 加速処理
-        let currentMax = player.nitro > 0 ? player.maxSpeed * 1.5 : player.maxSpeed;
-        if (player.speed < currentMax) player.speed += player.accel;
-        else player.speed *= 0.98;
+  // ゴール判定
+  if(player.x===COLS-2 && player.y===ROWS-2){
+    alert('クリア！おめでとう！');
+    // リセット
+    player={x:1,y:1};
+  }
+  draw();
+});
 
-        if (player.nitro > 0) player.nitro--;
-
-        player.dist += player.speed;
-        if (keys.left) player.x -= player.handle;
-        if (keys.right) player.x += player.handle;
-
-        // コースアウト減速
-        if (Math.abs(player.x) > 1.2) player.speed *= 0.95;
-
-        // CPU更新
-        rivals.forEach(r => r.dist += r.speed);
-
-        // 順位
-        let rank = [player, ...rivals].sort((a,b) => b.dist - a.dist).indexOf(player) + 1;
-        document.getElementById('rank-num').innerText = rank;
-        document.getElementById('dist-per').innerText = Math.min(100, Math.floor(player.dist/goalDist*100));
-
-        // アイテム判定
-        trackItems.forEach((it, i) => {
-            if (Math.abs(it.d - player.dist) < 100 && Math.abs(it.x - player.x) < 0.4) {
-                if (it.type === 'ITEM') {
-                    player.nitro = 120;
-                    document.getElementById('item-slot').innerText = '🚀';
-                    setTimeout(() => document.getElementById('item-slot').innerText = '?', 2000);
-                } else if (it.type === 'DASH') {
-                    player.speed += 20;
-                }
-                trackItems.splice(i, 1);
-            }
-        });
-
-        if (player.dist >= goalDist) {
-            state = 'RESULT';
-            document.getElementById('result-menu').classList.remove('hidden');
-            document.getElementById('res-msg').innerText = `${rank}位でフィニッシュ！`;
-        }
-    }
-
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 背景の海と空
-        ctx.fillStyle = '#48dbfb'; ctx.fillRect(0,0,600,200);
-        ctx.fillStyle = '#54a0ff'; ctx.fillRect(0,200,600,200);
-
-        const curveBase = Math.sin(player.dist * 0.001) * 60;
-
-        // 道路
-        for (let i = 25; i > 0; i--) {
-            let z = i / 25;
-            let y = 200 + (1/z) * 8;
-            let py = 200 + (1/((i-1)/25)) * 8;
-            let w = 450 / z;
-            let pw = 450 / ((i-1)/25);
-            let off = (canvas.width/2) + curveBase * (1-z);
-
-            // 芝生
-            ctx.fillStyle = (Math.floor(player.dist*0.04)+i)%2==0 ? '#2ecc71' : '#27ae60';
-            ctx.fillRect(0, y, 600, py-y);
-
-            // アスファルト
-            ctx.fillStyle = '#7f8c8d';
-            ctx.beginPath();
-            ctx.moveTo(off-w, y); ctx.lineTo(off+w, y); ctx.lineTo(off+pw, py); ctx.lineTo(off-pw, py);
-            ctx.fill();
-
-            // 縁石（赤白）
-            ctx.fillStyle = (Math.floor(player.dist*0.04)+i)%2==0 ? '#e74c3c' : '#fff';
-            ctx.fillRect(off-w-10, y, 10, py-y);
-            ctx.fillRect(off+w, y, 10, py-y);
-        }
-
-        // ギミック・アイテム描画
-        trackItems.forEach(it => {
-            let rel = it.d - player.dist;
-            if (rel > 0 && rel < 2000) {
-                let z = rel / 2000;
-                let sz = 1 - z;
-                let x = (canvas.width/2) + (it.x - player.x) * (400/z) + curveBase * z;
-                let y = 200 + (1/z) * 8;
-                ctx.fillStyle = it.type === 'ITEM' ? '#f1c40f' : '#2ecc71';
-                ctx.fillRect(x - 20*sz, y - 20*sz, 40*sz, 40*sz);
-                if(it.type === 'ITEM') { ctx.fillStyle="#fff"; ctx.fillText("?", x-5, y); }
-            }
-        });
-
-        // ライバル描画
-        rivals.forEach(r => {
-            let rel = r.dist - player.dist;
-            if (rel > -100 && rel < 2000) {
-                let z = Math.max(0.1, rel / 2000);
-                let sz = 1 - z;
-                let x = (canvas.width/2) + (r.x - player.x) * (400/z);
-                let y = 400 - (rel/5);
-                if (y > 200) {
-                    ctx.fillStyle = r.color;
-                    ctx.fillRect(x - 30*sz, y - 20*sz, 60*sz, 30*sz);
-                }
-            }
-        });
-
-        // 自車
-        ctx.save();
-        ctx.translate(canvas.width/2, 350);
-        if (keys.left) ctx.rotate(-0.1); if (keys.right) ctx.rotate(0.1);
-        ctx.fillStyle = player.color;
-        ctx.fillRect(-35, -20, 70, 35); // ボディ
-        ctx.fillStyle = "#333";
-        ctx.fillRect(-40, -15, 10, 20); ctx.fillRect(30, -15, 10, 20); // タイヤ
-        if (player.nitro > 0) { // ニトロ炎
-            ctx.fillStyle = "#f39c12";
-            ctx.fillRect(-10, 15, 20, 10 + Math.random()*10);
-        }
-        ctx.restore();
-    }
+draw();
 </script>
+
 </body>
 </html>
