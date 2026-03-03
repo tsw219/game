@@ -2,69 +2,66 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>影と光の迷路</title>
+<title>Shadow Maze</title>
 
 <style>
-body{
-  background:#111;
-  color:white;
-  text-align:center;
-  font-family:Arial;
-  margin:0;
+body {
+    margin:0;
+    background:#0a0a0a;
+    color:white;
+    font-family:"Segoe UI", sans-serif;
+    text-align:center;
 }
 
-canvas{
-  background:black;
-  border:3px solid white;
-  margin:auto;
-  display:none;
+#game {
+    display:none;
 }
 
-/* タイトル画面 */
-#startScreen{
-  margin-top:50px;
-  max-width:450px;
-  margin-left:auto;
-  margin-right:auto;
+canvas {
+    background:#111;
+    border:4px solid #555;
+    margin-top:10px;
+    box-shadow:0 0 20px #00ffff;
 }
 
-/* 上バー */
-#topBar{
-  display:none;
-  width:400px;
-  margin:10px auto;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+button {
+    padding:10px 20px;
+    font-size:16px;
+    margin:5px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+    background:#00cccc;
+    color:black;
 }
 
-#backBtn{
-  padding:5px 10px;
-  font-size:14px;
-  cursor:pointer;
+button:hover {
+    background:#00ffff;
 }
 
-/* メッセージ */
-#overlay{
-  position:absolute;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  display:none;
-  justify-content:center;
-  align-items:center;
-  flex-direction:column;
-  background:rgba(0,0,0,0.7);
-  color:white;
-  font-size:40px;
+#title,#gameover {
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.9);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
 }
 
-#overlay button{
-  margin-top:20px;
-  padding:10px 20px;
-  font-size:16px;
-  cursor:pointer;
+#gameover {
+    display:none;
+}
+
+h1 {
+    color:#00ffff;
+}
+
+#ui {
+    margin-top:5px;
 }
 </style>
 </head>
@@ -72,288 +69,330 @@ canvas{
 <body>
 
 <!-- タイトル -->
-<div id="startScreen">
-<h1>影と光の迷路</h1>
+<div id="title">
+<h1>🌑 Shadow Maze 🌕</h1>
 
-<p style="text-align:left">
+<p>
+▶ ルール ◀<br><br>
 
-【操作】<br>
-矢印キーで移動<br><br>
+・あなたは 青い光 です<br>
+・ゴール（黄色）を目指そう<br><br>
 
-【色】<br>
-🟩 自分 / ⬜ 壁 / ⬛ 道<br>
-🟥 敵 / 🟨 ゴール<br><br>
+・画面はだんだん暗くなります<br>
+・敵はランダムに動きます<br><br>
 
-【敵の動き】<br>
-・あなたに近づく方向へ1マスずつ移動<br>
-・壁は通れない<br>
-・たまにランダム移動<br><br>
+⚠️ 敵は予測できません！<br>
+「たまたま同じ方向に動いたら負け」です<br><br>
 
-【ルール】<br>
-・動くと光が減る<br>
-・敵に当たると負け<br>
-・ゴールでLvUP<br>
+⚪ 白っぽい所＝安全<br>
+⚫ 黒っぽい所＝危険<br><br>
 
+進む方向は自分で判断しよう！
 </p>
 
-<button id="startBtn">スタート</button>
+<button onclick="startGame()">スタート</button>
 </div>
 
-<!-- 上バー -->
-<div id="topBar">
-<div id="levelText"></div>
-<button id="backBtn">タイトルへ</button>
-</div>
 
 <!-- ゲーム -->
-<canvas id="game" width="400" height="400"></canvas>
+<div id="game">
 
-<!-- オーバーレイ -->
-<div id="overlay">
-<div id="overlayText"></div>
-<button id="restartBtn">もう一度</button>
-<button id="titleBtn">タイトルへ</button>
+<div id="ui">
+レベル: <span id="levelText">1</span>
+<button onclick="backToTitle()">タイトルへ</button>
 </div>
 
+<canvas id="canvas" width="500" height="500"></canvas>
+
+</div>
+
+
+<!-- ゲームオーバー -->
+<div id="gameover">
+<h1>💀 GAME OVER 💀</h1>
+
+<button onclick="retry()">同じレベル</button>
+<button onclick="backToTitle()">最初から</button>
+</div>
+
+
 <script>
-// ================= 音 =================
-const audio=new AudioContext();
+// =======================
+// 基本設定
+// =======================
 
-function playSound(f,t=0.15,type="square"){
- const o=audio.createOscillator();
- const g=audio.createGain();
- o.type=type;
- o.frequency.value=f;
- g.gain.value=0.1;
- o.connect(g);
- g.connect(audio.destination);
- o.start();
- o.stop(audio.currentTime+t);
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const size = 25;
+const cols = 20;
+const rows = 20;
+
+let player;
+let goal;
+let enemies = [];
+
+let level = 1;
+let darkness = 0;
+
+let playing = false;
+
+
+// =======================
+// 効果音（WebAudio）
+// =======================
+
+const audio = new (window.AudioContext || window.webkitAudioContext)();
+
+function playSound(freq,time){
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+
+    osc.connect(gain);
+    gain.connect(audio.destination);
+
+    osc.frequency.value = freq;
+    osc.start();
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        audio.currentTime + time
+    );
+
+    osc.stop(audio.currentTime + time);
 }
 
-function moveSound(){playSound(400,0.05);}
-function startSound(){playSound(600,0.3);}
-function clearSound(){playSound(900,0.4);}
-function overSound(){playSound(150,0.8,"sawtooth");}
+// =======================
+// ゲーム開始
+// =======================
 
-// ================= ゲーム =================
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+function startGame(){
+    document.getElementById("title").style.display="none";
+    document.getElementById("game").style.display="block";
 
-const SIZE=20;
-const ROWS=20;
-const COLS=20;
-
-let level=1;
-let maze,enemies,player,light;
-let playing=false;
-
-const startScreen=document.getElementById("startScreen");
-const topBar=document.getElementById("topBar");
-const overlay=document.getElementById("overlay");
-const overlayText=document.getElementById("overlayText");
-const levelText=document.getElementById("levelText");
-
-// 難易度
-function diff(){
- return{
-  wall:0.05+level*0.03,
-  enemy:Math.min(level,5),
-  light:Math.max(3,6-level*0.3)
- };
+    level = 1;
+    setup();
 }
 
-// 迷路
-function makeMaze(){
- const d=diff();
- let m=[];
- for(let y=0;y<ROWS;y++){
-  m[y]=[];
-  for(let x=0;x<COLS;x++){
-   if(y==0||x==0||y==ROWS-1||x==COLS-1) m[y][x]=1;
-   else m[y][x]=Math.random()<d.wall?1:0;
-  }
- }
- m[1][1]=0;
- m[ROWS-2][COLS-2]=0;
- return m;
-}
 
-// 敵
-function makeEnemies(){
- const d=diff();
- let list=[];
- for(let i=0;i<d.enemy;i++){
-  let x,y;
-  do{
-   x=Math.floor(Math.random()*(COLS-2))+1;
-   y=Math.floor(Math.random()*(ROWS-2))+1;
-  }while(maze[y][x]==1);
-  list.push({x,y});
- }
- return list;
-}
-
-// 描画
-function draw(){
- ctx.clearRect(0,0,400,400);
-
- for(let y=0;y<ROWS;y++){
-  for(let x=0;x<COLS;x++){
-
-   let d=Math.hypot(x-player.x,y-player.y);
-   if(d<=light){
-
-    ctx.fillStyle=maze[y][x]?"white":"#444";
-    ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
-   }
-  }
- }
-
- // ゴール
- let gx=COLS-2,gy=ROWS-2;
- if(Math.hypot(gx-player.x,gy-player.y)<=light){
-  ctx.fillStyle="gold";
-  ctx.fillRect(gx*SIZE,gy*SIZE,SIZE,SIZE);
- }
-
- // 敵
- enemies.forEach(e=>{
-  if(Math.hypot(e.x-player.x,e.y-player.y)<=light){
-   ctx.fillStyle="red";
-   ctx.fillRect(e.x*SIZE,e.y*SIZE,SIZE,SIZE);
-  }
- });
-
- // プレイヤー
- ctx.fillStyle="#0f0";
- ctx.fillRect(player.x*SIZE,player.y*SIZE,SIZE,SIZE);
-}
-
-// 敵AI
-function moveEnemies(){
-
- enemies.forEach(e=>{
-
-  let dirs=[
-   {x:1,y:0},{x:-1,y:0},
-   {x:0,y:1},{x:0,y:-1}
-  ];
-
-  // 70%で追跡
-  if(Math.random()<0.7){
-
-   dirs.sort((a,b)=>{
-    let da=Math.hypot(player.x-(e.x+a.x),player.y-(e.y+a.y));
-    let db=Math.hypot(player.x-(e.x+b.x),player.y-(e.y+b.y));
-    return da-db;
-   });
-  }
-  // 移動
-  for(let d of dirs){
-   let nx=e.x+d.x;
-   let ny=e.y+d.y;
-   if(maze[ny][nx]==0){
-    e.x=nx;
-    e.y=ny;
-    break;
-   }
-  }
- });
-}
-
+// =======================
 // 初期化
-function reset(){
- maze=makeMaze();
- enemies=makeEnemies();
- player={x:1,y:1};
- light=diff().light;
- levelText.innerText="Lv "+level;
- draw();
+// =======================
+
+function setup(){
+
+    player = {x:0,y:0};
+
+    goal = {
+        x:cols-1,
+        y:rows-1
+    };
+
+    enemies = [];
+
+    let enemyCount = level + 1;
+
+    for(let i=0;i<enemyCount;i++){
+        enemies.push({
+            x:Math.floor(Math.random()*cols),
+            y:Math.floor(Math.random()*rows),
+            dirX:0,
+            dirY:0
+        });
+    }
+
+    darkness = 0;
+
+    document.getElementById("levelText").textContent = level;
+
+    playing = true;
+
+    playSound(600,0.2);
 }
 
-// 終了画面
-function showOverlay(text){
- overlayText.innerText=text;
- overlay.style.display="flex";
- playing=false;
-}
 
-// 操作
+// =======================
+// キー操作
+// =======================
+
 document.addEventListener("keydown",e=>{
 
- if(!playing) return;
+    if(!playing) return;
 
- let nx=player.x,ny=player.y;
+    let nx = player.x;
+    let ny = player.y;
 
- if(e.key=="ArrowUp") ny--;
- if(e.key=="ArrowDown") ny++;
- if(e.key=="ArrowLeft") nx--;
- if(e.key=="ArrowRight") nx++;
+    if(e.key==="ArrowUp") ny--;
+    if(e.key==="ArrowDown") ny++;
+    if(e.key==="ArrowLeft") nx--;
+    if(e.key==="ArrowRight") nx++;
 
- if(maze[ny][nx]==0){
-  player={x:nx,y:ny};
-  moveSound();
-  light=Math.max(2,light-0.15);
- }
+    if(nx>=0 && nx<cols && ny>=0 && ny<rows){
 
- moveEnemies();
+        player.x = nx;
+        player.y = ny;
 
- // 敵
- for(let en of enemies){
-  if(en.x==player.x&&en.y==player.y){
-   overSound();
-   showOverlay("GAME OVER");
-   return;
-  }
- }
+        playSound(400,0.05);
 
- // ゴール
- if(player.x==COLS-2&&player.y==ROWS-2){
-  clearSound();
-  level++;
-  reset();
- }
+        moveEnemies();
+        check();
+    }
 
- draw();
 });
 
-// スタート
-document.getElementById("startBtn").onclick=()=>{
 
- audio.resume();
- startSound();
+// =======================
+// 敵移動（ランダム）
+// =======================
 
- startScreen.style.display="none";
- topBar.style.display="flex";
- canvas.style.display="block";
+function moveEnemies(){
 
- level=1;
- playing=true;
+    enemies.forEach(e=>{
 
- reset();
-};
+        let d = Math.floor(Math.random()*4);
 
-// 再開
-document.getElementById("restartBtn").onclick=()=>{
- overlay.style.display="none";
- level=1;
- playing=true;
- reset();
-};
+        if(d===0){e.x++;}
+        if(d===1){e.x--;}
+        if(d===2){e.y++;}
+        if(d===3){e.y--;}
 
-// タイトルへ
-function backToTitle(){
- overlay.style.display="none";
- canvas.style.display="none";
- topBar.style.display="none";
- startScreen.style.display="block";
- playing=false;
+        if(e.x<0) e.x=0;
+        if(e.x>=cols) e.x=cols-1;
+        if(e.y<0) e.y=0;
+        if(e.y>=rows) e.y=rows-1;
+
+    });
+
 }
 
-document.getElementById("titleBtn").onclick=backToTitle;
-document.getElementById("backBtn").onclick=backToTitle;
+
+// =======================
+// 判定
+// =======================
+
+function check(){
+
+    // 敵と衝突
+    for(let e of enemies){
+
+        if(e.x===player.x && e.y===player.y){
+            gameOver();
+            return;
+        }
+    }
+
+    // ゴール
+    if(player.x===goal.x && player.y===goal.y){
+
+        playSound(800,0.3);
+
+        level++;
+        setup();
+    }
+
+}
+
+
+// =======================
+// ゲームオーバー
+// =======================
+
+function gameOver(){
+
+    playing = false;
+
+    playSound(200,0.5);
+
+    document.getElementById("gameover").style.display="flex";
+}
+
+
+// =======================
+// 再挑戦
+// =======================
+
+function retry(){
+
+    document.getElementById("gameover").style.display="none";
+
+    setup();
+}
+
+
+// =======================
+// タイトルへ
+// =======================
+
+function backToTitle(){
+
+    playing = false;
+
+    document.getElementById("game").style.display="none";
+    document.getElementById("gameover").style.display="none";
+    document.getElementById("title").style.display="flex";
+}
+
+
+// =======================
+// 描画
+// =======================
+
+function draw(){
+
+    ctx.clearRect(0,0,500,500);
+
+    // 背景
+    ctx.fillStyle="#222";
+    ctx.fillRect(0,0,500,500);
+
+    // ゴール
+    ctx.fillStyle="yellow";
+    ctx.fillRect(
+        goal.x*size,
+        goal.y*size,
+        size,size
+    );
+
+    // プレイヤー
+    ctx.fillStyle="#00ffff";
+    ctx.fillRect(
+        player.x*size,
+        player.y*size,
+        size,size
+    );
+
+    // 敵
+    ctx.fillStyle="red";
+
+    enemies.forEach(e=>{
+        ctx.fillRect(
+            e.x*size,
+            e.y*size,
+            size,size
+        );
+    });
+
+
+    // 闇
+    if(playing){
+
+        darkness += 0.002 + level*0.0005;
+
+        ctx.fillStyle = `rgba(0,0,0,${darkness})`;
+        ctx.fillRect(0,0,500,500);
+
+        if(darkness>=1){
+            gameOver();
+        }
+    }
+
+
+    requestAnimationFrame(draw);
+}
+
+draw();
 
 </script>
+
 </body>
 </html>
