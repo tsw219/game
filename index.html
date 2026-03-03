@@ -1,214 +1,92 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retro Neon Racer</title>
-    <style>
-        body {
-            margin: 0;
-            background: #000;
-            color: #fff;
-            font-family: 'Courier New', Courier, monospace;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        #game-container {
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-            height: 400px;
-            background: linear-gradient(to bottom, #110022 0%, #440088 50%, #000 50%);
-            overflow: hidden;
-            border: 4px solid #0ff;
-            box-shadow: 0 0 20px #0ff;
-        }
-
-        /* 道路の描画用キャンバス */
-        canvas {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* UI表示 */
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            pointer-events: none;
-        }
-
-        .stat { font-size: 20px; color: #0ff; text-shadow: 0 0 5px #0ff; }
-
-        /* 操作ヒント */
-        #hint {
-            position: absolute;
-            bottom: 10px;
-            width: 100%;
-            text-align: center;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 12px;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>ガチャゲーム</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #ffb347, #ffcc33);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  h1 {
+    color: #fff;
+    text-shadow: 2px 2px #ff6f61;
+  }
+  #gachaButton {
+    padding: 15px 30px;
+    font-size: 18px;
+    margin: 20px;
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    background-color: #ff6f61;
+    color: white;
+    transition: 0.2s;
+  }
+  #gachaButton:hover {
+    background-color: #ff856f;
+  }
+  #result {
+    margin-top: 20px;
+    font-size: 20px;
+    color: #fff;
+    text-align: center;
+  }
+  .character {
+    font-size: 50px;
+    margin-top: 15px;
+  }
+</style>
 </head>
 <body>
 
-<div id="game-container">
-    <canvas id="canvas"></canvas>
-    <div id="ui">
-        <div class="stat">SPEED: <span id="speed">0</span> km/h</div>
-        <div class="stat">SCORE: <span id="score">0</span></div>
-    </div>
-    <div id="hint">← LEFT | RIGHT → (or Click Side)</div>
-</div>
+<h1>ガチャを引こう！</h1>
+<button id="gachaButton">ガチャを回す</button>
+<div id="result"></div>
 
 <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const speedEl = document.getElementById('speed');
-    const scoreEl = document.getElementById('score');
+  const characters = [
+    {name: "☆SSRキャラクター☆", emoji: "🌟", rarity: "SSR"},
+    {name: "☆SRキャラクター☆", emoji: "✨", rarity: "SR"},
+    {name: "☆Rキャラクター☆", emoji: "💫", rarity: "R"},
+    {name: "☆Nキャラクター☆", emoji: "⭐", rarity: "N"}
+  ];
 
-    // ゲーム設定
-    canvas.width = 600;
-    canvas.height = 400;
+  const probabilities = {
+    SSR: 5,  // 5%
+    SR: 15,  // 15%
+    R: 30,   // 30%
+    N: 50    // 50%
+  };
 
-    let playerX = 0;       // -1(左) ～ 1(右)
-    let speed = 0;         // 現在の速度
-    let score = 0;
-    let distance = 0;      // 走行距離
-    let trackCurve = 0;    // 道の曲がり具合
-    let enemies = [];      // 敵車両
+  function getRandomCharacter() {
+    const rand = Math.random() * 100;
+    let cumulative = 0;
 
-    const keys = { left: false, right: false };
-
-    // 入力検知
-    window.addEventListener('keydown', e => {
-        if (e.key === 'ArrowLeft') keys.left = true;
-        if (e.key === 'ArrowRight') keys.right = true;
-    });
-    window.addEventListener('keyup', e => {
-        if (e.key === 'ArrowLeft') keys.left = false;
-        if (e.key === 'ArrowRight') keys.right = false;
-    });
-
-    // マウス/タッチ操作
-    canvas.addEventListener('mousedown', e => {
-        const rect = canvas.getBoundingClientRect();
-        if (e.clientX - rect.left < canvas.width / 2) keys.left = true;
-        else keys.right = true;
-    });
-    window.addEventListener('mouseup', () => { keys.left = false; keys.right = false; });
-
-    function update() {
-        // 加速と減速
-        speed = Math.min(speed + 0.1, 100);
-        distance += speed;
-        score += Math.floor(speed / 10);
-
-        // 自車の移動
-        if (keys.left) playerX -= 0.04;
-        if (keys.right) playerX += 0.04;
-        
-        // 道のカーブ生成（ゆるやかに変化）
-        trackCurve = Math.sin(distance * 0.001) * 1.5;
-        playerX -= trackCurve * (speed / 1000); // カーブに持っていかれる力
-
-        // 範囲制限
-        if (playerX < -1.5) playerX = -1.5;
-        if (playerX > 1.5) playerX = 1.5;
-
-        // 敵の生成
-        if (Math.random() < 0.02) {
-            enemies.push({ x: (Math.random() * 2 - 1), y: 0 });
-        }
-
-        // 敵の更新
-        enemies.forEach((en, i) => {
-            en.y += speed * 0.001;
-            // 当たり判定
-            if (en.y > 0.8 && en.y < 1.0 && Math.abs(en.x - playerX) < 0.3) {
-                speed *= 0.3; // 衝突減速
-                enemies.splice(i, 1);
-            }
-            if (en.y > 1.2) enemies.splice(i, 1);
-        });
-
-        draw();
-        speedEl.innerText = Math.floor(speed * 3);
-        scoreEl.innerText = score;
-        requestAnimationFrame(update);
+    for (let rarity of ["SSR","SR","R","N"]) {
+      cumulative += probabilities[rarity];
+      if (rand < cumulative) {
+        return characters.find(c => c.rarity === rarity);
+      }
     }
+  }
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 1. 背景の山（遠景）
-        ctx.fillStyle = '#220044';
-        for(let i=0; i<5; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i*200 - (distance*0.1)%200, 200);
-            ctx.lineTo(i*200 + 100 - (distance*0.1)%200, 100);
-            ctx.lineTo(i*200 + 200 - (distance*0.1)%200, 200);
-            ctx.fill();
-        }
-
-        // 2. 道路の描画（擬似3D）
-        const lines = 20;
-        for (let i = lines; i > 0; i--) {
-            const z = i / lines;
-            const y = 200 + (1 / z) * 10;
-            const pz = (i - 1) / lines;
-            const py = 200 + (1 / pz) * 10;
-            
-            const width = 600 / z;
-            const pWidth = 600 / pz;
-            const offsetX = (canvas.width / 2) + (trackCurve * 100 * (1-z));
-            
-            // 道路の色
-            ctx.fillStyle = (Math.floor(distance * 0.05) + i) % 2 === 0 ? '#333' : '#444';
-            ctx.beginPath();
-            ctx.moveTo(offsetX - width, y);
-            ctx.lineTo(offsetX + width, y);
-            ctx.lineTo(offsetX + pWidth, py);
-            ctx.lineTo(offsetX - pWidth, py);
-            ctx.fill();
-
-            // センターライン
-            if ((Math.floor(distance * 0.05) + i) % 2 === 0) {
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(offsetX - 5, y, 10, py - y);
-            }
-        }
-
-        // 3. 敵車両の描画
-        enemies.forEach(en => {
-            const ez = 1 - en.y;
-            if (ez <= 0) return;
-            const ey = 200 + (1 / ez) * 10;
-            const ew = 300 / ez;
-            const ex = (canvas.width / 2) + (en.x - playerX) * ew + (trackCurve * 100 * en.y);
-            
-            ctx.fillStyle = '#ff0';
-            ctx.fillRect(ex - 20/ez, ey - 30/ez, 40/ez, 30/ez);
-        });
-
-        // 4. 自車の描画
-        ctx.fillStyle = '#f0f';
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = '#f0f';
-        // ボディ
-        ctx.fillRect(canvas.width / 2 - 30, 340, 60, 20);
-        // キャビン
-        ctx.fillStyle = '#0ff';
-        ctx.fillRect(canvas.width / 2 - 20, 325, 40, 15);
-        ctx.shadowBlur = 0;
-    }
-
-    update();
+  document.getElementById("gachaButton").addEventListener("click", () => {
+    const character = getRandomCharacter();
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerHTML = `
+      <div class="character">${character.emoji}</div>
+      <div>${character.name}</div>
+      <div>レアリティ: ${character.rarity}</div>
+    `;
+  });
 </script>
+
 </body>
 </html>
