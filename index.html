@@ -1,220 +1,235 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>テトリス風ゲーム</title>
-<style>
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #111;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    height: 100vh;
-    margin: 0;
-  }
-  h1 { margin-top: 20px; }
-  canvas {
-    background: #222;
-    margin-top: 20px;
-    border: 2px solid #fff;
-  }
-  #score {
-    margin-top: 10px;
-    font-size: 20px;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOGO! カート・ラッシュ</title>
+    <style>
+        :root {
+            --primary-blue: #00a8ff;
+            --road-grey: #444;
+            --grass-green: #2ecc71;
+            --accent-yellow: #f1c40f;
+        }
+
+        body { margin: 0; background: #2f3640; font-family: 'Hiragino Sans', 'Meiryo', sans-serif; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #game-outer { position: relative; width: 600px; height: 400px; border: 6px solid #f5f6fa; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        canvas { width: 100%; height: 100%; background: var(--primary-blue); display: block; }
+        
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; z-index: 100; backdrop-filter: blur(5px); }
+        h1 { font-size: 40px; margin-bottom: 20px; color: var(--accent-yellow); text-shadow: 3px 3px 0 #e67e22; transform: italic; }
+        
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        button { padding: 12px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 50px; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+        button:active { transform: translateY(3px); box-shadow: none; }
+        
+        .type-red { background: #e84118; color: white; }
+        .type-blue { background: #0097e6; color: white; }
+        .type-green { background: #44bd32; color: white; }
+
+        #hud { position: absolute; top: 15px; left: 15px; color: white; pointer-events: none; }
+        #rank-display { font-size: 48px; font-style: italic; color: var(--accent-yellow); text-shadow: 2px 2px 0 #000; }
+        #item-slot { width: 50px; height: 50px; background: rgba(255,255,255,0.2); border: 3px dashed white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-top: 10px; }
+
+        .hidden { display: none !important; }
+    </style>
 </head>
 <body>
 
-<h1>テトリス風ゲーム</h1>
-<canvas id="tetris" width="240" height="480"></canvas>
-<div id="score">Score: 0</div>
+<div id="game-outer">
+    <canvas id="canvas"></canvas>
+    
+    <div id="hud">
+        <div id="rank-display"><span id="rank-num">4</span>位</div>
+        <div id="item-slot">?</div>
+        <div style="margin-top:5px">LAP: <span id="dist-per">0</span>%</div>
+    </div>
+
+    <div id="start-menu" class="overlay">
+        <h1>GOGO! KART RUSH</h1>
+        <p>マシンを選んでスタート！</p>
+        <div class="btn-group">
+            <button class="type-red" onclick="initGame('speed')">⚡ スピード型</button>
+            <button class="type-blue" onclick="initGame('accel')">🚀 加速型</button>
+            <button class="type-green" onclick="initGame('handle')">🌀 ハンドル型</button>
+        </div>
+        <p style="font-size:12px; margin-top:20px;">[←][→]キー または 画面左右クリックで操作</p>
+    </div>
+
+    <div id="result-menu" class="overlay hidden">
+        <h1 id="res-title">FINISH!</h1>
+        <p id="res-msg"></p>
+        <button class="type-blue" onclick="location.reload()">もう一回！</button>
+    </div>
+</div>
 
 <script>
-const canvas = document.getElementById('tetris');
-const context = canvas.getContext('2d');
-const ROW = 20;
-const COL = 10;
-const BLOCK = 24;
-const WIDTH = COL * BLOCK;
-const HEIGHT = ROW * BLOCK;
-canvas.width = WIDTH;
-canvas.height = HEIGHT;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 600; canvas.height = 400;
 
-context.scale(BLOCK, BLOCK);
+    let state = 'MENU';
+    let player = { x: 0, speed: 0, dist: 0, maxSpeed: 40, accel: 0.15, handle: 0.05, color: '#fff', nitro: 0 };
+    let rivals = [];
+    let trackItems = [];
+    let goalDist = 15000;
 
-const colors = [
-  null,
-  '#FF0D72',
-  '#0DC2FF',
-  '#0DFF72',
-  '#F538FF',
-  '#FF8E0D',
-  '#FFE138',
-  '#3877FF'
-];
+    function initGame(type) {
+        if (type === 'speed')  { player.maxSpeed = 55; player.accel = 0.10; player.handle = 0.04; player.color = '#e84118'; }
+        if (type === 'accel')  { player.maxSpeed = 45; player.accel = 0.25; player.handle = 0.05; player.color = '#0097e6'; }
+        if (type === 'handle') { player.maxSpeed = 42; player.accel = 0.18; player.handle = 0.08; player.color = '#44bd32'; }
 
-const tetrominoes = [
-  [[1,1,1,1]], // I
-  [[2,0,0],[2,2,2]], // J
-  [[0,0,3],[3,3,3]], // L
-  [[4,4],[4,4]], // O
-  [[0,5,5],[5,5,0]], // S
-  [[0,6,0],[6,6,6]], // T
-  [[7,7,0],[0,7,7]]  // Z
-];
+        rivals = [
+            { x: -0.6, dist: 200, speed: 42, color: '#9c88ff', name: 'パープル・パンサー' },
+            { x: 0.6, dist: 400, speed: 45, color: '#fbc531', name: 'イエロー・ボルト' },
+            { x: 0.1, dist: 100, speed: 38, color: '#7f8c8d', name: 'シルバー・シャドウ' }
+        ];
 
-function createMatrix(w,h){
-  const matrix = [];
-  while(h--) matrix.push(new Array(w).fill(0));
-  return matrix;
-}
+        // アイテムとギミックの配置
+        for(let d=1000; d < goalDist; d+=1500) {
+            trackItems.push({ d: d, x: Math.random()*2-1, type: 'ITEM' });
+            trackItems.push({ d: d + 500, x: Math.random()*2-1, type: 'DASH' });
+        }
 
-function drawMatrix(matrix, offset){
-  matrix.forEach((row, y) => {
-    row.forEach((value, x) => {
-      if(value){
-        context.fillStyle = colors[value];
-        context.fillRect(x + offset.x, y + offset.y,1,1);
-      }
-    });
-  });
-}
-
-function merge(arena, player){
-  player.matrix.forEach((row,y)=>{
-    row.forEach((value,x)=>{
-      if(value) arena[y + player.pos.y][x + player.pos.x] = value;
-    });
-  });
-}
-
-function collide(arena, player){
-  const [m, o] = [player.matrix, player.pos];
-  for(let y=0; y<m.length; ++y){
-    for(let x=0; x<m[y].length; ++x){
-      if(m[y][x] && (arena[y+o.y] && arena[y+o.y][x+o.x]) !==0){
-        return true;
-      }
+        document.getElementById('start-menu').classList.add('hidden');
+        state = 'PLAY';
+        requestAnimationFrame(gameLoop);
     }
-  }
-  return false;
-}
 
-function rotate(matrix, dir){
-  for(let y=0; y<matrix.length; ++y){
-    for(let x=0; x<y; ++x){
-      [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+    const keys = { left: false, right: false };
+    window.onkeydown = e => { if(e.key=="ArrowLeft") keys.left=true; if(e.key=="ArrowRight") keys.right=true; };
+    window.onkeyup = e => { if(e.key=="ArrowLeft") keys.left=false; if(e.key=="ArrowRight") keys.right=false; };
+    canvas.onmousedown = e => { if(e.clientX - canvas.getBoundingClientRect().left < 300) keys.left=true; else keys.right=true; };
+    window.onmouseup = () => { keys.left=false; keys.right=false; };
+
+    function gameLoop() {
+        if (state !== 'PLAY') return;
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
     }
-  }
-  if(dir>0) matrix.forEach(row=>row.reverse());
-  else matrix.reverse();
-}
 
-function playerReset(){
-  const pieces = 'IJLOSTZ';
-  const type = pieces[Math.floor(Math.random()*pieces.length)];
-  player.matrix = tetrominoes[pieces.indexOf(type)];
-  player.pos.y = 0;
-  player.pos.x = Math.floor(COL/2) - Math.floor(player.matrix[0].length/2);
-  if(collide(arena, player)){
-    arena.forEach(row => row.fill(0));
-    score = 0;
-    updateScore();
-  }
-}
+    function update() {
+        // 加速処理
+        let currentMax = player.nitro > 0 ? player.maxSpeed * 1.5 : player.maxSpeed;
+        if (player.speed < currentMax) player.speed += player.accel;
+        else player.speed *= 0.98;
 
-function playerDrop(){
-  player.pos.y++;
-  if(collide(arena, player)){
-    player.pos.y--;
-    merge(arena, player);
-    sweep();
-    playerReset();
-  }
-  dropCounter = 0;
-}
+        if (player.nitro > 0) player.nitro--;
 
-function sweep(){
-  let rowCount = 1;
-  outer: for(let y=arena.length-1; y>=0; --y){
-    for(let x=0; x<arena[y].length; ++x){
-      if(arena[y][x] === 0) continue outer;
+        player.dist += player.speed;
+        if (keys.left) player.x -= player.handle;
+        if (keys.right) player.x += player.handle;
+
+        // コースアウト減速
+        if (Math.abs(player.x) > 1.2) player.speed *= 0.95;
+
+        // CPU更新
+        rivals.forEach(r => r.dist += r.speed);
+
+        // 順位
+        let rank = [player, ...rivals].sort((a,b) => b.dist - a.dist).indexOf(player) + 1;
+        document.getElementById('rank-num').innerText = rank;
+        document.getElementById('dist-per').innerText = Math.min(100, Math.floor(player.dist/goalDist*100));
+
+        // アイテム判定
+        trackItems.forEach((it, i) => {
+            if (Math.abs(it.d - player.dist) < 100 && Math.abs(it.x - player.x) < 0.4) {
+                if (it.type === 'ITEM') {
+                    player.nitro = 120;
+                    document.getElementById('item-slot').innerText = '🚀';
+                    setTimeout(() => document.getElementById('item-slot').innerText = '?', 2000);
+                } else if (it.type === 'DASH') {
+                    player.speed += 20;
+                }
+                trackItems.splice(i, 1);
+            }
+        });
+
+        if (player.dist >= goalDist) {
+            state = 'RESULT';
+            document.getElementById('result-menu').classList.remove('hidden');
+            document.getElementById('res-msg').innerText = `${rank}位でフィニッシュ！`;
+        }
     }
-    const row = arena.splice(y,1)[0].fill(0);
-    arena.unshift(row);
-    score += rowCount * 10;
-    rowCount *= 2;
-    y++;
-  }
-  updateScore();
-}
 
-function playerMove(dir){
-  player.pos.x += dir;
-  if(collide(arena, player)) player.pos.x -= dir;
-}
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 背景の海と空
+        ctx.fillStyle = '#48dbfb'; ctx.fillRect(0,0,600,200);
+        ctx.fillStyle = '#54a0ff'; ctx.fillRect(0,200,600,200);
 
-function playerRotate(dir){
-  const pos = player.pos.x;
-  rotate(player.matrix, dir);
-  let offset = 1;
-  while(collide(arena, player)){
-    player.pos.x += offset;
-    offset = -(offset + (offset>0?1:-1));
-    if(offset>player.matrix[0].length){
-      rotate(player.matrix, -dir);
-      player.pos.x = pos;
-      return;
+        const curveBase = Math.sin(player.dist * 0.001) * 60;
+
+        // 道路
+        for (let i = 25; i > 0; i--) {
+            let z = i / 25;
+            let y = 200 + (1/z) * 8;
+            let py = 200 + (1/((i-1)/25)) * 8;
+            let w = 450 / z;
+            let pw = 450 / ((i-1)/25);
+            let off = (canvas.width/2) + curveBase * (1-z);
+
+            // 芝生
+            ctx.fillStyle = (Math.floor(player.dist*0.04)+i)%2==0 ? '#2ecc71' : '#27ae60';
+            ctx.fillRect(0, y, 600, py-y);
+
+            // アスファルト
+            ctx.fillStyle = '#7f8c8d';
+            ctx.beginPath();
+            ctx.moveTo(off-w, y); ctx.lineTo(off+w, y); ctx.lineTo(off+pw, py); ctx.lineTo(off-pw, py);
+            ctx.fill();
+
+            // 縁石（赤白）
+            ctx.fillStyle = (Math.floor(player.dist*0.04)+i)%2==0 ? '#e74c3c' : '#fff';
+            ctx.fillRect(off-w-10, y, 10, py-y);
+            ctx.fillRect(off+w, y, 10, py-y);
+        }
+
+        // ギミック・アイテム描画
+        trackItems.forEach(it => {
+            let rel = it.d - player.dist;
+            if (rel > 0 && rel < 2000) {
+                let z = rel / 2000;
+                let sz = 1 - z;
+                let x = (canvas.width/2) + (it.x - player.x) * (400/z) + curveBase * z;
+                let y = 200 + (1/z) * 8;
+                ctx.fillStyle = it.type === 'ITEM' ? '#f1c40f' : '#2ecc71';
+                ctx.fillRect(x - 20*sz, y - 20*sz, 40*sz, 40*sz);
+                if(it.type === 'ITEM') { ctx.fillStyle="#fff"; ctx.fillText("?", x-5, y); }
+            }
+        });
+
+        // ライバル描画
+        rivals.forEach(r => {
+            let rel = r.dist - player.dist;
+            if (rel > -100 && rel < 2000) {
+                let z = Math.max(0.1, rel / 2000);
+                let sz = 1 - z;
+                let x = (canvas.width/2) + (r.x - player.x) * (400/z);
+                let y = 400 - (rel/5);
+                if (y > 200) {
+                    ctx.fillStyle = r.color;
+                    ctx.fillRect(x - 30*sz, y - 20*sz, 60*sz, 30*sz);
+                }
+            }
+        });
+
+        // 自車
+        ctx.save();
+        ctx.translate(canvas.width/2, 350);
+        if (keys.left) ctx.rotate(-0.1); if (keys.right) ctx.rotate(0.1);
+        ctx.fillStyle = player.color;
+        ctx.fillRect(-35, -20, 70, 35); // ボディ
+        ctx.fillStyle = "#333";
+        ctx.fillRect(-40, -15, 10, 20); ctx.fillRect(30, -15, 10, 20); // タイヤ
+        if (player.nitro > 0) { // ニトロ炎
+            ctx.fillStyle = "#f39c12";
+            ctx.fillRect(-10, 15, 20, 10 + Math.random()*10);
+        }
+        ctx.restore();
     }
-  }
-}
-
-let arena = createMatrix(COL, ROW);
-let dropCounter = 0;
-let dropInterval = 1000;
-let lastTime = 0;
-let score = 0;
-
-const player = {
-  pos: {x:0,y:0},
-  matrix: null
-};
-
-function update(time=0){
-  const deltaTime = time - lastTime;
-  lastTime = time;
-  dropCounter += deltaTime;
-  if(dropCounter > dropInterval){
-    playerDrop();
-  }
-  draw();
-  requestAnimationFrame(update);
-}
-
-function draw(){
-  context.fillStyle = '#222';
-  context.fillRect(0,0,WIDTH,HEIGHT);
-  drawMatrix(arena,{x:0,y:0});
-  drawMatrix(player.matrix,player.pos);
-}
-
-function updateScore(){
-  document.getElementById('score').innerText = 'Score: ' + score;
-}
-
-document.addEventListener('keydown', event => {
-  if(event.key === 'ArrowLeft') playerMove(-1);
-  else if(event.key === 'ArrowRight') playerMove(1);
-  else if(event.key === 'ArrowDown') playerDrop();
-  else if(event.key === 'ArrowUp') playerRotate(1);
-});
-
-playerReset();
-update();
 </script>
-
 </body>
 </html>
