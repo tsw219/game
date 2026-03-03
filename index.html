@@ -2,163 +2,247 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Shadow Switch</title>
+<title>Rhythm Drive</title>
 
 <style>
-body {
-    margin: 0;
-    background: #111;
-    color: white;
-    font-family: sans-serif;
-    text-align: center;
+body{
+    background:#000;
+    color:white;
+    text-align:center;
+    font-family:sans-serif;
 }
 
-h1 {
-    margin: 10px;
+h1{margin:10px;}
+
+#game{
+    background:#111;
+    display:block;
+    margin:auto;
+    border:3px solid white;
 }
 
-canvas {
-    background: #222;
-    border: 3px solid white;
-    margin-top: 10px;
+#panel{
+    margin:10px;
+    font-size:18px;
+}
+
+select,button{
+    font-size:16px;
+    padding:6px 10px;
+    margin:5px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🌒 Shadow Switch</h1>
-<p>矢印キーで操作（影は逆に動く）</p>
+<h1>🎵 Rhythm Drive</h1>
 
-<canvas id="game" width="500" height="500"></canvas>
+<canvas id="game" width="420" height="600"></canvas>
+
+<div id="panel">
+Score: <span id="score">0</span>
+　
+Combo: <span id="combo">0</span>
+</div>
+
+<div>
+<select id="level">
+    <option value="easy">EASY</option>
+    <option value="normal">NORMAL</option>
+    <option value="hard">HARD</option>
+</select>
+
+<button id="start">START</button>
+</div>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-const size = 50;
-const grid = 10;
+const scoreText=document.getElementById("score");
+const comboText=document.getElementById("combo");
+const startBtn=document.getElementById("start");
+const levelSel=document.getElementById("level");
 
-// マップ（0:空 1:壁 2:ゴール 3:トラップ）
-const map = [
-[1,1,1,1,1,1,1,1,1,1],
-[1,0,0,0,0,0,0,3,0,1],
-[1,0,1,1,1,0,1,1,0,1],
-[1,0,0,0,1,0,0,0,0,1],
-[1,1,1,0,1,1,1,0,1,1],
-[1,0,0,0,0,0,1,0,0,1],
-[1,0,1,1,1,0,1,1,0,1],
-[1,0,0,0,0,0,0,0,2,1],
-[1,3,1,1,1,1,1,0,0,1],
-[1,1,1,1,1,1,1,1,1,1]
-];
+const lanes=[70,150,230,310];
+const keys=["d","f","j","k"];
 
-let player = {x:1, y:1};
-let shadow = {x:8, y:8};
+let notes=[];
+let score=0;
+let combo=0;
+let playing=false;
 
-let clear = false;
+// 音（ループ曲）
+const music=new Audio(
+"data:audio/wav;base64,UklGRmQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YUwAAAAA/////wAAAP///wAAAP///wAAAP///wAA"
+);
+
+// 難易度設定
+const settings={
+    easy:{speed:3,interval:90},
+    normal:{speed:4,interval:65},
+    hard:{speed:5.5,interval:45}
+};
+
+let speed=4;
+let interval=70;
+let frame=0;
+
+// ノーツ生成
+function makeNote(){
+    notes.push({
+        lane:Math.floor(Math.random()*4),
+        y:-20,
+        hit:false
+    });
+}
+
+// スタート
+function start(){
+
+    const lv=levelSel.value;
+
+    speed=settings[lv].speed;
+    interval=settings[lv].interval;
+
+    notes=[];
+    score=0;
+    combo=0;
+    frame=0;
+
+    playing=true;
+
+    music.currentTime=0;
+    music.loop=true;
+    music.play();
+}
+
+startBtn.onclick=start;
 
 // 入力
-document.addEventListener("keydown", e => {
+document.addEventListener("keydown",e=>{
 
-    if(clear) return;
+    if(!playing) return;
 
-    let dx=0, dy=0;
+    const key=e.key.toLowerCase();
+    const lane=keys.indexOf(key);
 
-    if(e.key==="ArrowUp") dy=-1;
-    if(e.key==="ArrowDown") dy=1;
-    if(e.key==="ArrowLeft") dx=-1;
-    if(e.key==="ArrowRight") dx=1;
+    if(lane===-1) return;
 
-    move(dx,dy);
+    hit(lane);
 });
 
-// 移動処理
-function move(dx,dy){
-
-    // 本体
-    let nx = player.x + dx;
-    let ny = player.y + dy;
-
-    // 影（逆）
-    let sx = shadow.x - dx;
-    let sy = shadow.y - dy;
-
-    if(map[ny][nx]!==1){
-        player.x=nx;
-        player.y=ny;
-    }
-
-    if(map[sy][sx]!==1){
-        shadow.x=sx;
-        shadow.y=sy;
-    }
-
-    check();
-}
-
 // 判定
-function check(){
+function hit(lane){
 
-    // トラップ
-    if(map[player.y][player.x]===3 ||
-       map[shadow.y][shadow.x]===3){
+    for(let n of notes){
 
-        alert("GAME OVER");
-        reset();
+        if(n.lane!==lane||n.hit) continue;
+
+        const d=Math.abs(n.y-520);
+
+        if(d<15){
+            score+=300;
+            combo++;
+            n.hit=true;
+            return;
+        }
+
+        if(d<35){
+            score+=100;
+            combo++;
+            n.hit=true;
+            return;
+        }
     }
 
-    // ゴール
-    if(map[player.y][player.x]===2 &&
-       map[shadow.y][shadow.x]===2){
-
-        alert("CLEAR!!");
-        clear=true;
-    }
+    combo=0;
 }
 
-// リセット
-function reset(){
-    player={x:1,y:1};
-    shadow={x:8,y:8};
+// 更新
+function update(){
+
+    if(!playing) return;
+
+    frame++;
+
+    // ノーツ生成
+    if(frame%interval===0){
+        makeNote();
+    }
+
+    // 移動
+    for(let n of notes){
+        n.y+=speed;
+    }
+
+    // Miss
+    for(let n of notes){
+        if(n.y>600&&!n.hit){
+            n.hit=true;
+            combo=0;
+        }
+    }
+
+    notes=notes.filter(n=>!n.hit);
+
+    scoreText.textContent=score;
+    comboText.textContent=combo;
 }
 
 // 描画
 function draw(){
 
-    ctx.clearRect(0,0,500,500);
+    ctx.clearRect(0,0,420,600);
 
-    for(let y=0;y<grid;y++){
-        for(let x=0;x<grid;x++){
-
-            if(map[y][x]===1) ctx.fillStyle="#555";
-            if(map[y][x]===0) ctx.fillStyle="#222";
-            if(map[y][x]===2) ctx.fillStyle="green";
-            if(map[y][x]===3) ctx.fillStyle="red";
-
-            ctx.fillRect(x*size,y*size,size,size);
-        }
+    // レーン
+    for(let x of lanes){
+        ctx.fillStyle="#222";
+        ctx.fillRect(x-30,0,60,600);
     }
 
-    // 本体
-    ctx.fillStyle="cyan";
-    ctx.fillRect(
-        player.x*size+10,
-        player.y*size+10,
-        30,30
-    );
+    // 判定線
+    ctx.strokeStyle="yellow";
+    ctx.lineWidth=3;
 
-    // 影
-    ctx.fillStyle="black";
-    ctx.fillRect(
-        shadow.x*size+15,
-        shadow.y*size+15,
-        20,20
-    );
+    ctx.beginPath();
+    ctx.moveTo(0,520);
+    ctx.lineTo(420,520);
+    ctx.stroke();
+
+    // ノーツ
+    for(let n of notes){
+
+        ctx.fillStyle="cyan";
+
+        ctx.beginPath();
+        ctx.arc(
+            lanes[n.lane],
+            n.y,
+            14,
+            0,
+            Math.PI*2
+        );
+        ctx.fill();
+    }
+
+    // キー表示
+    ctx.fillStyle="white";
+    ctx.font="18px sans-serif";
+
+    keys.forEach((k,i)=>{
+        ctx.fillText(
+            k.toUpperCase(),
+            lanes[i]-6,
+            565
+        );
+    });
 }
 
 // ループ
 function loop(){
+    update();
     draw();
     requestAnimationFrame(loop);
 }
