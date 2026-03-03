@@ -21,11 +21,14 @@ canvas{
 }
 
 #startScreen{
-  margin-top:100px;
+  margin-top:60px;
+  max-width:450px;
+  margin-left:auto;
+  margin-right:auto;
 }
 
 button{
-  padding:10px 20px;
+  padding:10px 25px;
   font-size:18px;
   cursor:pointer;
   background:#0f0;
@@ -47,18 +50,33 @@ button{
 <body>
 
 <div id="startScreen">
+
   <h1>影と光の迷路</h1>
 
-  <p>
-    【ルール】<br>
-    ・矢印キーで移動<br>
-    ・光は動くたびに減る<br>
-    ・赤＝敵（当たると負け）<br>
-    ・黄色＝ゴール<br>
-    ・進むとレベルUP！
+  <p style="text-align:left">
+
+【ルール】<br><br>
+
+▶ 操作<br>
+・矢印キーで移動<br><br>
+
+▶ 色の意味<br>
+🟩 緑：あなた<br>
+⬜ 白：壁（通れない）<br>
+⬛ 灰色：道（進める）<br>
+🟥 赤：敵（当たると負け）<br>
+🟨 黄色：ゴール<br><br>
+
+▶ ゲーム内容<br>
+・光の中しか見えません<br>
+・動くと光が減ります<br>
+・ゴールに行くとLvUP！<br>
+・Lvが上がるほど難しくなります<br>
+
   </p>
 
   <button id="startBtn">スタート</button>
+
 </div>
 
 <h2 id="levelText"></h2>
@@ -68,7 +86,7 @@ button{
 <div id="message"></div>
 
 <script>
-// ================= 音システム =================
+// ================= 音 =================
 
 const audio = new AudioContext();
 
@@ -78,7 +96,6 @@ function playSound(freq,time=0.15,type="square"){
 
   osc.type = type;
   osc.frequency.value = freq;
-
   gain.gain.value = 0.1;
 
   osc.connect(gain);
@@ -88,7 +105,6 @@ function playSound(freq,time=0.15,type="square"){
   osc.stop(audio.currentTime + time);
 }
 
-// 各音
 function moveSound(){ playSound(400,0.05); }
 function startSound(){ playSound(600,0.3); }
 function clearSound(){ playSound(900,0.4); }
@@ -96,19 +112,19 @@ function levelUpSound(){ playSound(1200,0.3); }
 function gameOverSound(){ playSound(150,0.8,"sawtooth"); }
 
 // BGM
-let bgmTimer=null;
+let bgm=null;
 
 function startBGM(){
-  bgmTimer=setInterval(()=>{
+  bgm=setInterval(()=>{
     playSound(220,0.2,"sine");
-  },800);
+  },900);
 }
 
 function stopBGM(){
-  clearInterval(bgmTimer);
+  clearInterval(bgm);
 }
 
-// ================= ゲーム本体 =================
+// ================= ゲーム =================
 
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
@@ -121,22 +137,38 @@ let level=1;
 let maze=[];
 let enemies=[];
 let player={x:1,y:1};
-let light=5;
+let light=6;
 let started=false;
 
 const msg=document.getElementById("message");
 const levelText=document.getElementById("levelText");
 
+// 難易度調整
+function getDifficulty(){
+
+  return {
+    wall: 0.05 + level*0.03, // 壁の量
+    enemy: Math.min(level,5), // 敵数
+    light: Math.max(3,6 - level*0.3) // 初期光
+  };
+}
+
 // 迷路生成
 function makeMaze(){
+
+  const diff=getDifficulty();
+
   let m=[];
+
   for(let y=0;y<ROWS;y++){
     m[y]=[];
+
     for(let x=0;x<COLS;x++){
+
       if(y==0||x==0||y==ROWS-1||x==COLS-1){
         m[y][x]=1;
       }else{
-        m[y][x]=Math.random()<0.15+level*0.05?1:0;
+        m[y][x]=Math.random()<diff.wall?1:0;
       }
     }
   }
@@ -149,9 +181,13 @@ function makeMaze(){
 
 // 敵生成
 function makeEnemies(){
+
+  const diff=getDifficulty();
+
   let list=[];
 
-  for(let i=0;i<level;i++){
+  for(let i=0;i<diff.enemy;i++){
+
     let x,y;
 
     do{
@@ -167,6 +203,7 @@ function makeEnemies(){
 
 // 描画
 function draw(){
+
   ctx.clearRect(0,0,400,400);
 
   for(let y=0;y<ROWS;y++){
@@ -175,7 +212,7 @@ function draw(){
       let dx=x-player.x;
       let dy=y-player.y;
 
-      if(Math.sqrt(dx*dx+dy*dy)<=light){
+      if(Math.hypot(dx,dy)<=light){
 
         if(maze[y][x]==1) ctx.fillStyle="white";
         else ctx.fillStyle="#444";
@@ -187,17 +224,16 @@ function draw(){
 
   // ゴール
   let gx=COLS-2,gy=ROWS-2;
-  let d=Math.hypot(gx-player.x,gy-player.y);
 
-  if(d<=light){
+  if(Math.hypot(gx-player.x,gy-player.y)<=light){
     ctx.fillStyle="gold";
     ctx.fillRect(gx*SIZE,gy*SIZE,SIZE,SIZE);
   }
 
   // 敵
   enemies.forEach(e=>{
-    let d=Math.hypot(e.x-player.x,e.y-player.y);
-    if(d<=light){
+
+    if(Math.hypot(e.x-player.x,e.y-player.y)<=light){
       ctx.fillStyle="red";
       ctx.fillRect(e.x*SIZE,e.y*SIZE,SIZE,SIZE);
     }
@@ -210,6 +246,7 @@ function draw(){
 
 // 敵移動
 function moveEnemies(){
+
   enemies.forEach(e=>{
 
     let dx=player.x-e.x;
@@ -223,8 +260,9 @@ function moveEnemies(){
   });
 }
 
-// メッセージ表示
+// メッセージ
 function show(text){
+
   msg.innerText=text;
   msg.style.display="block";
 
@@ -233,13 +271,16 @@ function show(text){
   },1200);
 }
 
-// レベル初期化
+// 初期化
 function reset(){
+
+  const diff=getDifficulty();
+
   maze=makeMaze();
   enemies=makeEnemies();
 
   player={x:1,y:1};
-  light=5;
+  light=diff.light;
 
   levelText.innerText="Lv "+level;
 }
@@ -258,16 +299,21 @@ document.addEventListener("keydown",e=>{
   if(e.key=="ArrowRight") nx++;
 
   if(maze[ny][nx]==0){
+
     player={x:nx,y:ny};
+
     moveSound();
-    light=Math.max(2,light-0.2);
+
+    light=Math.max(2,light-0.15-level*0.02);
   }
 
   moveEnemies();
 
-  // 敵判定
+  // 敵
   for(let e of enemies){
+
     if(e.x==player.x && e.y==player.y){
+
       gameOverSound();
       stopBGM();
 
@@ -297,7 +343,7 @@ document.addEventListener("keydown",e=>{
 // スタート
 document.getElementById("startBtn").onclick=()=>{
 
-  audio.resume(); // 音有効化
+  audio.resume();
 
   startSound();
 
@@ -312,5 +358,6 @@ document.getElementById("startBtn").onclick=()=>{
   startBGM();
 };
 </script>
+
 </body>
 </html>
