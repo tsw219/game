@@ -6,279 +6,265 @@
 
 <style>
 body {
-  margin: 0;
-  background: black;
-  font-family: sans-serif;
-  color: white;
-  text-align: center;
+  margin:0;
+  background:#000;
+  color:#fff;
+  font-family:sans-serif;
+  text-align:center;
 }
 
-#menu, #game, #clear {
-  display: none;
-  width: 100vw;
-  height: 100vh;
+#menu,#game,#clear{
+  display:none;
+  width:100vw;
+  height:100vh;
 }
 
-.show {
-  display: block;
+.show{display:block;}
+
+h1{margin-top:20px;}
+
+.stage-btn{
+  display:inline-block;
+  margin:15px;
+  cursor:pointer;
 }
 
-h1 {
-  margin-top: 30px;
+.stage-btn canvas{
+  border:3px solid #fff;
 }
 
-.stage-btn {
-  display: inline-block;
-  margin: 20px;
-  cursor: pointer;
+#gameArea{
+  position:relative;
+  width:90vw;
+  height:80vh;
+  margin:auto;
+  border:3px solid #fff;
+  background:#222;
+  overflow:hidden;
 }
 
-.stage-btn img {
-  width: 200px;
-  height: 140px;
-  border: 3px solid white;
+.diff{
+  position:absolute;
 }
 
-#gameArea {
-  position: relative;
-  width: 90vw;
-  height: 80vh;
-  margin: auto;
-  border: 3px solid white;
-  background-size: cover;
-  background-position: center;
+.diff.found{
+  border:2px solid red;
+  background:rgba(255,0,0,0.2);
 }
 
-/* 見えない違い */
-.diff {
-  position: absolute;
-  border: 2px solid rgba(255,0,0,0.0);
-}
-
-.diff.found {
-  border: 2px solid red;
-  background: rgba(255,0,0,0.2);
-}
-
-#info {
-  margin-top: 10px;
-  font-size: 20px;
-}
-
-#timer {
-  font-size: 22px;
-  margin: 10px;
-}
+#timer{font-size:22px;margin:10px;}
 </style>
 </head>
 
 <body>
 
-<!-- メニュー -->
+<!-- MENU -->
 <div id="menu" class="show">
-  <h1>One Day Escape</h1>
-  <p>画像の違いをすべて見つけろ</p>
+<h1>One Day Escape</h1>
+<p>違いを探して脱出せよ</p>
 
-  <div class="stage-btn" onclick="startGame('school')">
-    <img src="https://picsum.photos/400/300?school">
-    <div>学校</div>
-  </div>
-
-  <div class="stage-btn" onclick="startGame('home')">
-    <img src="https://picsum.photos/400/300?room">
-    <div>家</div>
-  </div>
-
-  <div class="stage-btn" onclick="startGame('library')">
-    <img src="https://picsum.photos/400/300?library">
-    <div>図書館</div>
-  </div>
-
-  <div class="stage-btn" onclick="startGame('mall')">
-    <img src="https://picsum.photos/400/300?mall">
-    <div>モール</div>
-  </div>
+<div class="stage-btn" onclick="startGame('school')">
+<canvas id="c1" width="200" height="140"></canvas>
+<div>学校</div>
 </div>
 
-<!-- ゲーム -->
+<div class="stage-btn" onclick="startGame('home')">
+<canvas id="c2" width="200" height="140"></canvas>
+<div>家</div>
+</div>
+
+<div class="stage-btn" onclick="startGame('library')">
+<canvas id="c3" width="200" height="140"></canvas>
+<div>図書館</div>
+</div>
+
+<div class="stage-btn" onclick="startGame('mall')">
+<canvas id="c4" width="200" height="140"></canvas>
+<div>モール</div>
+</div>
+</div>
+
+<!-- GAME -->
 <div id="game">
 
-  <div id="timer">残り時間: 08:00</div>
+<div id="timer">08:00</div>
 
-  <div id="gameArea"></div>
+<div id="gameArea"></div>
 
-  <div id="info">
-    見つけた数: <span id="count">0</span> / 5
-  </div>
+<div>発見: <span id="count">0</span>/5</div>
 
 </div>
 
-<!-- クリア -->
+<!-- CLEAR -->
 <div id="clear">
-
-  <h1>ESCAPE SUCCESS!</h1>
-
-  <p>脱出成功！</p>
-
-  <button onclick="backMenu()">タイトルへ</button>
-
+<h1>ESCAPE!</h1>
+<button onclick="backMenu()">戻る</button>
 </div>
 
 <script>
 
-const menu = document.getElementById("menu");
-const game = document.getElementById("game");
-const clear = document.getElementById("clear");
+const menu=document.getElementById("menu");
+const game=document.getElementById("game");
+const clear=document.getElementById("clear");
 
-const gameArea = document.getElementById("gameArea");
-const countText = document.getElementById("count");
-const timerText = document.getElementById("timer");
+const gameArea=document.getElementById("gameArea");
+const countText=document.getElementById("count");
+const timerText=document.getElementById("timer");
 
-let found = 0;
-let time = 480;
-let timer;
+let found=0,time=480,timer;
 
-const stages = {
+const stages={
 
-  school: {
-    bg: "https://picsum.photos/1200/800?classroom",
-    diffs: [
-      {x:20,y:30,w:80,h:60},
-      {x:200,y:100,w:60,h:70},
-      {x:400,y:200,w:90,h:50},
-      {x:600,y:120,w:70,h:80},
-      {x:750,y:300,w:80,h:60},
-    ]
-  },
+school:{
+color:"#3a6",
+diffs:[
+{x:50,y:50,w:60,h:60},
+{x:200,y:120,w:70,h:50},
+{x:350,y:200,w:80,h:60},
+{x:500,y:100,w:60,h:70},
+{x:650,y:250,w:70,h:60}
+]
+},
 
-  home: {
-    bg: "https://picsum.photos/1200/800?bedroom",
-    diffs: [
-      {x:100,y:50,w:80,h:70},
-      {x:300,y:200,w:90,h:60},
-      {x:500,y:100,w:70,h:80},
-      {x:650,y:250,w:60,h:70},
-      {x:780,y:150,w:80,h:60},
-    ]
-  },
+home:{
+color:"#963",
+diffs:[
+{x:80,y:60,w:70,h:60},
+{x:250,y:150,w:60,h:70},
+{x:400,y:80,w:80,h:60},
+{x:550,y:220,w:60,h:60},
+{x:700,y:140,w:70,h:70}
+]
+},
 
-  library: {
-    bg: "https://picsum.photos/1200/800?books",
-    diffs: [
-      {x:50,y:80,w:90,h:70},
-      {x:220,y:200,w:80,h:60},
-      {x:420,y:150,w:70,h:90},
-      {x:600,y:300,w:60,h:70},
-      {x:780,y:100,w:90,h:60},
-    ]
-  },
+library:{
+color:"#369",
+diffs:[
+{x:60,y:90,w:70,h:60},
+{x:220,y:180,w:60,h:70},
+{x:380,y:120,w:80,h:60},
+{x:540,y:260,w:60,h:60},
+{x:690,y:100,w:70,h:70}
+]
+},
 
-  mall: {
-    bg: "https://picsum.photos/1200/800?shopping",
-    diffs: [
-      {x:100,y:200,w:80,h:70},
-      {x:280,y:100,w:70,h:80},
-      {x:450,y:250,w:90,h:60},
-      {x:620,y:150,w:60,h:70},
-      {x:800,y:300,w:80,h:60},
-    ]
-  }
+mall:{
+color:"#933",
+diffs:[
+{x:100,y:200,w:60,h:70},
+{x:260,y:100,w:70,h:60},
+{x:420,y:250,w:80,h:60},
+{x:580,y:140,w:60,h:70},
+{x:740,y:280,w:70,h:60}
+]
+}
 
 };
+
+function drawPreview(id,color,text){
+
+const c=document.getElementById(id);
+const ctx=c.getContext("2d");
+
+ctx.fillStyle=color;
+ctx.fillRect(0,0,200,140);
+
+ctx.fillStyle="#fff";
+ctx.font="20px sans-serif";
+ctx.fillText(text,50,75);
+
+}
+
+drawPreview("c1","#3a6","School");
+drawPreview("c2","#963","Home");
+drawPreview("c3","#369","Library");
+drawPreview("c4","#933","Mall");
 
 
 function startGame(name){
 
-  menu.classList.remove("show");
-  game.classList.add("show");
+menu.classList.remove("show");
+game.classList.add("show");
 
-  found = 0;
-  time = 480;
+found=0;
+time=480;
+countText.textContent=0;
 
-  countText.textContent = found;
+gameArea.innerHTML="";
 
-  gameArea.innerHTML = "";
+const s=stages[name];
 
-  const stage = stages[name];
+gameArea.style.background=s.color;
 
-  gameArea.style.backgroundImage =
-    `url(${stage.bg})`;
+s.diffs.forEach(d=>{
 
-  stage.diffs.forEach((d)=>{
+const div=document.createElement("div");
+div.className="diff";
 
-    const div = document.createElement("div");
+div.style.left=d.x+"px";
+div.style.top=d.y+"px";
+div.style.width=d.w+"px";
+div.style.height=d.h+"px";
 
-    div.className = "diff";
+div.onclick=()=>{
 
-    div.style.left = d.x+"px";
-    div.style.top = d.y+"px";
-    div.style.width = d.w+"px";
-    div.style.height = d.h+"px";
+if(div.classList.contains("found"))return;
 
-    div.onclick = ()=>{
+div.classList.add("found");
+found++;
+countText.textContent=found;
 
-      if(div.classList.contains("found")) return;
+if(found>=5)clearGame();
 
-      div.classList.add("found");
+};
 
-      found++;
-      countText.textContent = found;
+gameArea.appendChild(div);
 
-      if(found >= 5){
-        clearGame();
-      }
-    };
+});
 
-    gameArea.appendChild(div);
-
-  });
-
-  startTimer();
+startTimer();
 
 }
-
 
 function startTimer(){
 
-  clearInterval(timer);
+clearInterval(timer);
 
-  timer = setInterval(()=>{
+timer=setInterval(()=>{
 
-    time--;
+time--;
 
-    let m = Math.floor(time/60);
-    let s = time%60;
+let m=Math.floor(time/60);
+let s=time%60;
 
-    timerText.textContent =
-      `残り時間: 0${m}:${s<10?"0"+s:s}`;
+timerText.textContent=
+`0${m}:${s<10?"0"+s:s}`;
 
-    if(time<=0){
-      alert("TIME OVER");
-      backMenu();
-    }
-
-  },1000);
-
+if(time<=0){
+alert("TIME OVER");
+backMenu();
 }
 
+},1000);
+
+}
 
 function clearGame(){
 
-  clearInterval(timer);
+clearInterval(timer);
 
-  game.classList.remove("show");
-  clear.classList.add("show");
+game.classList.remove("show");
+clear.classList.add("show");
 
 }
 
-
 function backMenu(){
 
-  clearInterval(timer);
+clearInterval(timer);
 
-  game.classList.remove("show");
-  clear.classList.remove("show");
-  menu.classList.add("show");
+game.classList.remove("show");
+clear.classList.remove("show");
+menu.classList.add("show");
 
 }
 
