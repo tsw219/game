@@ -5,41 +5,36 @@
 <title>Shadow Maze</title>
 
 <style>
-body {
+body{
     margin:0;
-    background:#0a0a0a;
+    background:#000;
     color:white;
-    font-family:"Segoe UI", sans-serif;
+    font-family:sans-serif;
     text-align:center;
 }
 
-#game {
-    display:none;
-}
-
-canvas {
+canvas{
     background:#111;
-    border:4px solid #555;
+    border:3px solid #0ff;
+    box-shadow:0 0 20px #0ff;
     margin-top:10px;
-    box-shadow:0 0 20px #00ffff;
 }
 
-button {
+button{
     padding:10px 20px;
-    font-size:16px;
     margin:5px;
+    font-size:16px;
     border:none;
-    border-radius:5px;
+    border-radius:6px;
+    background:#0ff;
     cursor:pointer;
-    background:#00cccc;
-    color:black;
 }
 
-button:hover {
-    background:#00ffff;
+button:hover{
+    background:#6ff;
 }
 
-#title,#gameover {
+#title,#gameover{
     position:absolute;
     top:0;
     left:0;
@@ -52,17 +47,10 @@ button:hover {
     align-items:center;
 }
 
-#gameover {
-    display:none;
-}
+#gameover{display:none;}
+#game{display:none;}
 
-h1 {
-    color:#00ffff;
-}
-
-#ui {
-    margin-top:5px;
-}
+h1{color:#0ff;}
 </style>
 </head>
 
@@ -75,19 +63,18 @@ h1 {
 <p>
 ▶ ルール ◀<br><br>
 
-・あなたは 青い光 です<br>
-・ゴール（黄色）を目指そう<br><br>
+・青＝あなた<br>
+・黄色＝ゴール<br>
+・赤＝敵<br><br>
 
-・画面はだんだん暗くなります<br>
-・敵はランダムに動きます<br><br>
+・敵はランダムに動く<br>
+・同じ場所に来たら負け<br><br>
 
-⚠️ 敵は予測できません！<br>
-「たまたま同じ方向に動いたら負け」です<br><br>
+・周りはだんだん暗くなる<br>
+・光の中を進もう！<br><br>
 
-⚪ 白っぽい所＝安全<br>
-⚫ 黒っぽい所＝危険<br><br>
-
-進む方向は自分で判断しよう！
+白っぽい＝安全<br>
+黒い＝危険
 </p>
 
 <button onclick="startGame()">スタート</button>
@@ -97,142 +84,136 @@ h1 {
 <!-- ゲーム -->
 <div id="game">
 
-<div id="ui">
-レベル: <span id="levelText">1</span>
-<button onclick="backToTitle()">タイトルへ</button>
+<div>
+レベル：<span id="lv">1</span>
+<button onclick="backTitle()">タイトルへ</button>
 </div>
 
-<canvas id="canvas" width="500" height="500"></canvas>
+<canvas id="c" width="500" height="500"></canvas>
 
 </div>
 
 
 <!-- ゲームオーバー -->
 <div id="gameover">
-<h1>💀 GAME OVER 💀</h1>
+<h1>GAME OVER</h1>
 
-<button onclick="retry()">同じレベル</button>
-<button onclick="backToTitle()">最初から</button>
+<button onclick="retry()">もう一度</button>
+<button onclick="backTitle()">最初から</button>
 </div>
 
 
 <script>
-// =======================
-// 基本設定
-// =======================
 
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+// ===================
+// 設定
+// ===================
 
-const size = 25;
-const cols = 20;
-const rows = 20;
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+
+const size=25;
+const cols=20;
+const rows=20;
 
 let player;
 let goal;
-let enemies = [];
-
-let level = 1;
-let darkness = 0;
-
-let playing = false;
+let enemies=[];
+let level=1;
+let light=150;
+let playing=false;
 
 
-// =======================
-// 効果音（WebAudio）
-// =======================
+// ===================
+// 音
+// ===================
 
-const audio = new (window.AudioContext || window.webkitAudioContext)();
+const audio=new (window.AudioContext||webkitAudioContext)();
 
-function playSound(freq,time){
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
+function sound(f,t){
+    const o=audio.createOscillator();
+    const g=audio.createGain();
 
-    osc.connect(gain);
-    gain.connect(audio.destination);
+    o.connect(g);
+    g.connect(audio.destination);
 
-    osc.frequency.value = freq;
-    osc.start();
+    o.frequency.value=f;
+    o.start();
 
-    gain.gain.exponentialRampToValueAtTime(
+    g.gain.exponentialRampToValueAtTime(
         0.0001,
-        audio.currentTime + time
+        audio.currentTime+t
     );
 
-    osc.stop(audio.currentTime + time);
+    o.stop(audio.currentTime+t);
 }
 
-// =======================
-// ゲーム開始
-// =======================
+
+// ===================
+// 開始
+// ===================
 
 function startGame(){
     document.getElementById("title").style.display="none";
     document.getElementById("game").style.display="block";
 
-    level = 1;
+    level=1;
     setup();
 }
 
 
-// =======================
+// ===================
 // 初期化
-// =======================
+// ===================
 
 function setup(){
 
-    player = {x:0,y:0};
+    player={x:0,y:0};
 
-    goal = {
-        x:cols-1,
-        y:rows-1
-    };
+    goal={x:cols-1,y:rows-1};
 
-    enemies = [];
+    enemies=[];
 
-    let enemyCount = level + 1;
-
-    for(let i=0;i<enemyCount;i++){
+    for(let i=0;i<level+1;i++){
         enemies.push({
             x:Math.floor(Math.random()*cols),
-            y:Math.floor(Math.random()*rows),
-            dirX:0,
-            dirY:0
+            y:Math.floor(Math.random()*rows)
         });
     }
 
-    darkness = 0;
+    light=180-level*15;
+    if(light<60) light=60;
 
-    document.getElementById("levelText").textContent = level;
+    document.getElementById("lv").textContent=level;
 
-    playing = true;
+    playing=true;
 
-    playSound(600,0.2);
+    sound(600,0.2);
 }
 
 
-// =======================
-// キー操作
-// =======================
+// ===================
+// 操作
+// ===================
 
 document.addEventListener("keydown",e=>{
 
     if(!playing) return;
 
-    let nx = player.x;
-    let ny = player.y;
+    let x=player.x;
+    let y=player.y;
 
-    if(e.key==="ArrowUp") ny--;
-    if(e.key==="ArrowDown") ny++;
-    if(e.key==="ArrowLeft") nx--;
-    if(e.key==="ArrowRight") nx++;
+    if(e.key==="ArrowUp") y--;
+    if(e.key==="ArrowDown") y++;
+    if(e.key==="ArrowLeft") x--;
+    if(e.key==="ArrowRight") x++;
 
-    if(nx>=0 && nx<cols && ny>=0 && ny<rows){
+    if(x>=0&&x<cols&&y>=0&&y<rows){
 
-        player.x = nx;
-        player.y = ny;
+        player.x=x;
+        player.y=y;
 
-        playSound(400,0.05);
+        sound(400,0.05);
 
         moveEnemies();
         check();
@@ -241,50 +222,48 @@ document.addEventListener("keydown",e=>{
 });
 
 
-// =======================
-// 敵移動（ランダム）
-// =======================
+// ===================
+// 敵移動
+// ===================
 
 function moveEnemies(){
 
     enemies.forEach(e=>{
 
-        let d = Math.floor(Math.random()*4);
+        let d=Math.floor(Math.random()*4);
 
-        if(d===0){e.x++;}
-        if(d===1){e.x--;}
-        if(d===2){e.y++;}
-        if(d===3){e.y--;}
+        if(d===0)e.x++;
+        if(d===1)e.x--;
+        if(d===2)e.y++;
+        if(d===3)e.y--;
 
-        if(e.x<0) e.x=0;
-        if(e.x>=cols) e.x=cols-1;
-        if(e.y<0) e.y=0;
-        if(e.y>=rows) e.y=rows-1;
+        if(e.x<0)e.x=0;
+        if(e.x>=cols)e.x=cols-1;
+        if(e.y<0)e.y=0;
+        if(e.y>=rows)e.y=rows-1;
 
     });
 
 }
 
 
-// =======================
+// ===================
 // 判定
-// =======================
+// ===================
 
 function check(){
 
-    // 敵と衝突
     for(let e of enemies){
 
-        if(e.x===player.x && e.y===player.y){
+        if(e.x===player.x&&e.y===player.y){
             gameOver();
             return;
         }
     }
 
-    // ゴール
-    if(player.x===goal.x && player.y===goal.y){
+    if(player.x===goal.x&&player.y===goal.y){
 
-        playSound(800,0.3);
+        sound(800,0.3);
 
         level++;
         setup();
@@ -293,23 +272,23 @@ function check(){
 }
 
 
-// =======================
+// ===================
 // ゲームオーバー
-// =======================
+// ===================
 
 function gameOver(){
 
-    playing = false;
+    playing=false;
 
-    playSound(200,0.5);
+    sound(200,0.5);
 
     document.getElementById("gameover").style.display="flex";
 }
 
 
-// =======================
+// ===================
 // 再挑戦
-// =======================
+// ===================
 
 function retry(){
 
@@ -319,13 +298,13 @@ function retry(){
 }
 
 
-// =======================
-// タイトルへ
-// =======================
+// ===================
+// タイトル
+// ===================
 
-function backToTitle(){
+function backTitle(){
 
-    playing = false;
+    playing=false;
 
     document.getElementById("game").style.display="none";
     document.getElementById("gameover").style.display="none";
@@ -333,9 +312,9 @@ function backToTitle(){
 }
 
 
-// =======================
+// ===================
 // 描画
-// =======================
+// ===================
 
 function draw(){
 
@@ -345,6 +324,7 @@ function draw(){
     ctx.fillStyle="#222";
     ctx.fillRect(0,0,500,500);
 
+
     // ゴール
     ctx.fillStyle="yellow";
     ctx.fillRect(
@@ -353,13 +333,15 @@ function draw(){
         size,size
     );
 
+
     // プレイヤー
-    ctx.fillStyle="#00ffff";
+    ctx.fillStyle="#0ff";
     ctx.fillRect(
         player.x*size,
         player.y*size,
         size,size
     );
+
 
     // 敵
     ctx.fillStyle="red";
@@ -373,17 +355,27 @@ function draw(){
     });
 
 
-    // 闇
+    // 暗闇（ライト方式）
     if(playing){
 
-        darkness += 0.002 + level*0.0005;
-
-        ctx.fillStyle = `rgba(0,0,0,${darkness})`;
+        ctx.fillStyle="rgba(0,0,0,0.9)";
         ctx.fillRect(0,0,500,500);
 
-        if(darkness>=1){
-            gameOver();
-        }
+        ctx.globalCompositeOperation="destination-out";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            player.x*size+12,
+            player.y*size+12,
+            light,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fill();
+
+        ctx.globalCompositeOperation="source-over";
     }
 
 
