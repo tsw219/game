@@ -2,388 +2,224 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Shadow Maze</title>
+<title>Time Loop Runner</title>
 
 <style>
-body{
-    margin:0;
-    background:#000;
-    color:white;
-    font-family:sans-serif;
-    text-align:center;
+body {
+    margin: 0;
+    background: linear-gradient(#111, #333);
+    font-family: sans-serif;
+    text-align: center;
+    color: white;
 }
 
-canvas{
-    background:#111;
-    border:3px solid #0ff;
-    box-shadow:0 0 20px #0ff;
-    margin-top:10px;
+h1 {
+    margin: 10px;
 }
 
-button{
-    padding:10px 20px;
-    margin:5px;
-    font-size:16px;
-    border:none;
-    border-radius:6px;
-    background:#0ff;
-    cursor:pointer;
+#game {
+    background: #000;
+    display: block;
+    margin: auto;
+    border: 3px solid white;
 }
 
-button:hover{
-    background:#6ff;
+#info {
+    margin: 10px;
+    font-size: 18px;
 }
-
-#title,#gameover{
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:rgba(0,0,0,0.9);
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-}
-
-#gameover{display:none;}
-#game{display:none;}
-
-h1{color:#0ff;}
 </style>
 </head>
 
 <body>
 
-<!-- タイトル -->
-<div id="title">
-<h1>🌑 Shadow Maze 🌕</h1>
+<h1>⏳ Time Loop Runner</h1>
+<canvas id="game" width="800" height="400"></canvas>
 
-<p>
-▶ ルール ◀<br><br>
-
-・青＝あなた<br>
-・黄色＝ゴール<br>
-・赤＝敵<br><br>
-
-・敵はランダムに動く<br>
-・同じ場所に来たら負け<br><br>
-
-・周りはだんだん暗くなる<br>
-・光の中を進もう！<br><br>
-
-白っぽい＝安全<br>
-黒い＝危険
-</p>
-
-<button onclick="startGame()">スタート</button>
+<div id="info">
+    スペース：ジャンプ / R：リスタート
 </div>
-
-
-<!-- ゲーム -->
-<div id="game">
-
-<div>
-レベル：<span id="lv">1</span>
-<button onclick="backTitle()">タイトルへ</button>
-</div>
-
-<canvas id="c" width="500" height="500"></canvas>
-
-</div>
-
-
-<!-- ゲームオーバー -->
-<div id="gameover">
-<h1>GAME OVER</h1>
-
-<button onclick="retry()">もう一度</button>
-<button onclick="backTitle()">最初から</button>
-</div>
-
 
 <script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-// ===================
-// 設定
-// ===================
+let gameSpeed;
+let score;
+let gameOver;
 
-const canvas=document.getElementById("c");
-const ctx=canvas.getContext("2d");
+// プレイヤー
+const player = {
+    x: 80,
+    y: 300,
+    w: 40,
+    h: 40,
+    vy: 0,
+    jump: false
+};
 
-const size=25;
-const cols=20;
-const rows=20;
+// 配列
+let enemies = [];
+let gems = [];
 
-let player;
-let goal;
-let enemies=[];
-let level=1;
-let light=150;
-let playing=false;
-
-
-// ===================
-// 音
-// ===================
-
-const audio=new (window.AudioContext||webkitAudioContext)();
-
-function sound(f,t){
-    const o=audio.createOscillator();
-    const g=audio.createGain();
-
-    o.connect(g);
-    g.connect(audio.destination);
-
-    o.frequency.value=f;
-    o.start();
-
-    g.gain.exponentialRampToValueAtTime(
-        0.0001,
-        audio.currentTime+t
-    );
-
-    o.stop(audio.currentTime+t);
-}
-
-
-// ===================
-// 開始
-// ===================
-
-function startGame(){
-    document.getElementById("title").style.display="none";
-    document.getElementById("game").style.display="block";
-
-    level=1;
-    setup();
-}
-
-
-// ===================
 // 初期化
-// ===================
-
-function setup(){
-
-    player={x:0,y:0};
-
-    goal={x:cols-1,y:rows-1};
-
-    enemies=[];
-
-    for(let i=0;i<level+1;i++){
-        enemies.push({
-            x:Math.floor(Math.random()*cols),
-            y:Math.floor(Math.random()*rows)
-        });
-    }
-
-    light=180-level*15;
-    if(light<60) light=60;
-
-    document.getElementById("lv").textContent=level;
-
-    playing=true;
-
-    sound(600,0.2);
+function reset() {
+    gameSpeed = 4;
+    score = 0;
+    gameOver = false;
+    player.y = 300;
+    player.vy = 0;
+    enemies = [];
+    gems = [];
 }
 
+// 敵生成
+function spawnEnemy() {
+    enemies.push({
+        x: 800,
+        y: 320,
+        w: 30,
+        h: 30
+    });
+}
 
-// ===================
-// 操作
-// ===================
+// 宝石生成
+function spawnGem() {
+    gems.push({
+        x: 800,
+        y: Math.random() * 200 + 100,
+        r: 10
+    });
+}
 
-document.addEventListener("keydown",e=>{
-
-    if(!playing) return;
-
-    let x=player.x;
-    let y=player.y;
-
-    if(e.key==="ArrowUp") y--;
-    if(e.key==="ArrowDown") y++;
-    if(e.key==="ArrowLeft") x--;
-    if(e.key==="ArrowRight") x++;
-
-    if(x>=0&&x<cols&&y>=0&&y<rows){
-
-        player.x=x;
-        player.y=y;
-
-        sound(400,0.05);
-
-        moveEnemies();
-        check();
+// 入力
+document.addEventListener("keydown", e => {
+    if (e.code === "Space" && !player.jump && !gameOver) {
+        player.vy = -13;
+        player.jump = true;
     }
 
+    if (e.code === "KeyR") {
+        reset();
+    }
 });
 
-
-// ===================
-// 敵移動
-// ===================
-
-function moveEnemies(){
-
-    enemies.forEach(e=>{
-
-        let d=Math.floor(Math.random()*4);
-
-        if(d===0)e.x++;
-        if(d===1)e.x--;
-        if(d===2)e.y++;
-        if(d===3)e.y--;
-
-        if(e.x<0)e.x=0;
-        if(e.x>=cols)e.x=cols-1;
-        if(e.y<0)e.y=0;
-        if(e.y>=rows)e.y=rows-1;
-
-    });
-
-}
-
-
-// ===================
-// 判定
-// ===================
-
-function check(){
-
-    for(let e of enemies){
-
-        if(e.x===player.x&&e.y===player.y){
-            gameOver();
-            return;
-        }
-    }
-
-    if(player.x===goal.x&&player.y===goal.y){
-
-        sound(800,0.3);
-
-        level++;
-        setup();
-    }
-
-}
-
-
-// ===================
-// ゲームオーバー
-// ===================
-
-function gameOver(){
-
-    playing=false;
-
-    sound(200,0.5);
-
-    document.getElementById("gameover").style.display="flex";
-}
-
-
-// ===================
-// 再挑戦
-// ===================
-
-function retry(){
-
-    document.getElementById("gameover").style.display="none";
-
-    setup();
-}
-
-
-// ===================
-// タイトル
-// ===================
-
-function backTitle(){
-
-    playing=false;
-
-    document.getElementById("game").style.display="none";
-    document.getElementById("gameover").style.display="none";
-    document.getElementById("title").style.display="flex";
-}
-
-
-// ===================
-// 描画
-// ===================
-
-function draw(){
-
-    ctx.clearRect(0,0,500,500);
-
-    // 背景
-    ctx.fillStyle="#222";
-    ctx.fillRect(0,0,500,500);
-
-
-    // ゴール
-    ctx.fillStyle="yellow";
-    ctx.fillRect(
-        goal.x*size,
-        goal.y*size,
-        size,size
+// 当たり判定
+function hit(a, b) {
+    return (
+        a.x < b.x + b.w &&
+        a.x + a.w > b.x &&
+        a.y < b.y + b.h &&
+        a.y + a.h > b.y
     );
+}
 
+// 更新
+function update() {
+    if (gameOver) return;
 
-    // プレイヤー
-    ctx.fillStyle="#0ff";
-    ctx.fillRect(
-        player.x*size,
-        player.y*size,
-        size,size
-    );
+    // 重力
+    player.vy += 0.6;
+    player.y += player.vy;
 
+    if (player.y >= 300) {
+        player.y = 300;
+        player.vy = 0;
+        player.jump = false;
+    }
 
     // 敵
-    ctx.fillStyle="red";
+    enemies.forEach(e => {
+        e.x -= gameSpeed;
 
-    enemies.forEach(e=>{
-        ctx.fillRect(
-            e.x*size,
-            e.y*size,
-            size,size
-        );
+        if (hit(player, e)) {
+            gameOver = true;
+        }
     });
 
+    enemies = enemies.filter(e => e.x > -50);
 
-    // 暗闇（ライト方式）
-    if(playing){
+    // 宝石
+    gems.forEach(g => {
+        g.x -= gameSpeed;
 
-        ctx.fillStyle="rgba(0,0,0,0.9)";
-        ctx.fillRect(0,0,500,500);
+        const dx = player.x + 20 - g.x;
+        const dy = player.y + 20 - g.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
-        ctx.globalCompositeOperation="destination-out";
+        if (dist < 25) {
+            score += 10;
+            g.collected = true;
+        }
+    });
 
-        ctx.beginPath();
+    gems = gems.filter(g => !g.collected && g.x > -50);
 
-        ctx.arc(
-            player.x*size+12,
-            player.y*size+12,
-            light,
-            0,
-            Math.PI*2
-        );
+    // スコア
+    score += 0.05;
+    gameSpeed += 0.0005;
 
-        ctx.fill();
-
-        ctx.globalCompositeOperation="source-over";
-    }
-
-
-    requestAnimationFrame(draw);
+    // ランダム生成
+    if (Math.random() < 0.02) spawnEnemy();
+    if (Math.random() < 0.015) spawnGem();
 }
 
-draw();
+// 描画
+function draw() {
+    ctx.clearRect(0, 0, 800, 400);
 
+    // 地面
+    ctx.fillStyle = "#444";
+    ctx.fillRect(0, 340, 800, 60);
+
+    // プレイヤー
+    ctx.fillStyle = "#00ffcc";
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+
+    // 敵
+    ctx.fillStyle = "red";
+    enemies.forEach(e => {
+        ctx.fillRect(e.x, e.y, e.w, e.h);
+    });
+
+    // 宝石
+    ctx.fillStyle = "gold";
+    gems.forEach(g => {
+        ctx.beginPath();
+        ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // UI
+    ctx.fillStyle = "white";
+    ctx.font = "20px sans-serif";
+    ctx.fillText("Score: " + Math.floor(score), 10, 25);
+    ctx.fillText("Speed: " + gameSpeed.toFixed(1), 10, 50);
+
+    // GAME OVER
+    if (gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(0,0,800,400);
+
+        ctx.fillStyle = "white";
+        ctx.font = "50px sans-serif";
+        ctx.fillText("GAME OVER", 230, 180);
+
+        ctx.font = "25px sans-serif";
+        ctx.fillText("Rキーでリスタート", 280, 230);
+    }
+}
+
+// ループ
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+// 開始
+reset();
+loop();
 </script>
 
 </body>
