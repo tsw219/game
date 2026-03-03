@@ -2,169 +2,168 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Mind Trap</title>
+<title>Shadow Switch</title>
 
 <style>
 body {
-    background: radial-gradient(#111, #000);
+    margin: 0;
+    background: #111;
     color: white;
-    font-family: Arial;
+    font-family: sans-serif;
     text-align: center;
 }
 
 h1 {
-    margin-top: 20px;
+    margin: 10px;
 }
 
-#game {
-    width: 420px;
-    margin: 30px auto;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-}
-
-.block {
-    width: 200px;
-    height: 200px;
+canvas {
     background: #222;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.block.active {
-    background: gold;
-    box-shadow: 0 0 30px gold;
-}
-
-#panel {
-    font-size: 20px;
-    margin: 20px;
-}
-
-button {
-    padding: 10px 20px;
-    font-size: 18px;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
+    border: 3px solid white;
+    margin-top: 10px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🧠 Mind Trap</h1>
+<h1>🌒 Shadow Switch</h1>
+<p>矢印キーで操作（影は逆に動く）</p>
 
-<div id="panel">
-    Level: <span id="level">0</span>
-</div>
-
-<div id="game">
-    <div class="block" data-id="0"></div>
-    <div class="block" data-id="1"></div>
-    <div class="block" data-id="2"></div>
-    <div class="block" data-id="3"></div>
-</div>
-
-<button id="start">START</button>
+<canvas id="game" width="500" height="500"></canvas>
 
 <script>
-const blocks = document.querySelectorAll(".block");
-const levelText = document.getElementById("level");
-const startBtn = document.getElementById("start");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-let pattern = [];
-let user = [];
-let level = 0;
-let playing = false;
+const size = 50;
+const grid = 10;
 
-// 音
-const beep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YRAAAAAA");
+// マップ（0:空 1:壁 2:ゴール 3:トラップ）
+const map = [
+[1,1,1,1,1,1,1,1,1,1],
+[1,0,0,0,0,0,0,3,0,1],
+[1,0,1,1,1,0,1,1,0,1],
+[1,0,0,0,1,0,0,0,0,1],
+[1,1,1,0,1,1,1,0,1,1],
+[1,0,0,0,0,0,1,0,0,1],
+[1,0,1,1,1,0,1,1,0,1],
+[1,0,0,0,0,0,0,0,2,1],
+[1,3,1,1,1,1,1,0,0,1],
+[1,1,1,1,1,1,1,1,1,1]
+];
 
-// ランダム
-function randomBlock() {
-    return Math.floor(Math.random() * 4);
-}
+let player = {x:1, y:1};
+let shadow = {x:8, y:8};
 
-// 光る
-function flash(id) {
-    blocks[id].classList.add("active");
-    beep.play();
+let clear = false;
 
-    setTimeout(() => {
-        blocks[id].classList.remove("active");
-    }, 400);
-}
+// 入力
+document.addEventListener("keydown", e => {
 
-// パターン再生
-async function playPattern() {
-    playing = true;
+    if(clear) return;
 
-    for (let id of pattern) {
-        await new Promise(r => setTimeout(r, 600));
-        flash(id);
-    }
+    let dx=0, dy=0;
 
-    playing = false;
-}
+    if(e.key==="ArrowUp") dy=-1;
+    if(e.key==="ArrowDown") dy=1;
+    if(e.key==="ArrowLeft") dx=-1;
+    if(e.key==="ArrowRight") dx=1;
 
-// スタート
-function startGame() {
-    pattern = [];
-    user = [];
-    level = 0;
-    next();
-}
-
-// 次のレベル
-function next() {
-    user = [];
-    level++;
-    levelText.textContent = level;
-
-    pattern.push(randomBlock());
-
-    setTimeout(playPattern, 500);
-}
-
-// クリック
-blocks.forEach(b => {
-    b.addEventListener("click", () => {
-
-        if (playing) return;
-
-        const id = Number(b.dataset.id);
-
-        flash(id);
-        user.push(id);
-
-        check();
-    });
+    move(dx,dy);
 });
 
+// 移動処理
+function move(dx,dy){
+
+    // 本体
+    let nx = player.x + dx;
+    let ny = player.y + dy;
+
+    // 影（逆）
+    let sx = shadow.x - dx;
+    let sy = shadow.y - dy;
+
+    if(map[ny][nx]!==1){
+        player.x=nx;
+        player.y=ny;
+    }
+
+    if(map[sy][sx]!==1){
+        shadow.x=sx;
+        shadow.y=sy;
+    }
+
+    check();
+}
+
 // 判定
-function check() {
-    const i = user.length - 1;
+function check(){
 
-    if (user[i] !== pattern[i]) {
-        gameOver();
-        return;
+    // トラップ
+    if(map[player.y][player.x]===3 ||
+       map[shadow.y][shadow.x]===3){
+
+        alert("GAME OVER");
+        reset();
     }
 
-    if (user.length === pattern.length) {
-        setTimeout(next, 700);
+    // ゴール
+    if(map[player.y][player.x]===2 &&
+       map[shadow.y][shadow.x]===2){
+
+        alert("CLEAR!!");
+        clear=true;
     }
 }
 
-// 終了
-function gameOver() {
-    alert("GAME OVER\nLevel: " + level);
-    playing = true;
+// リセット
+function reset(){
+    player={x:1,y:1};
+    shadow={x:8,y:8};
 }
 
-startBtn.onclick = startGame;
+// 描画
+function draw(){
+
+    ctx.clearRect(0,0,500,500);
+
+    for(let y=0;y<grid;y++){
+        for(let x=0;x<grid;x++){
+
+            if(map[y][x]===1) ctx.fillStyle="#555";
+            if(map[y][x]===0) ctx.fillStyle="#222";
+            if(map[y][x]===2) ctx.fillStyle="green";
+            if(map[y][x]===3) ctx.fillStyle="red";
+
+            ctx.fillRect(x*size,y*size,size,size);
+        }
+    }
+
+    // 本体
+    ctx.fillStyle="cyan";
+    ctx.fillRect(
+        player.x*size+10,
+        player.y*size+10,
+        30,30
+    );
+
+    // 影
+    ctx.fillStyle="black";
+    ctx.fillRect(
+        shadow.x*size+15,
+        shadow.y*size+15,
+        20,20
+    );
+}
+
+// ループ
+function loop(){
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
 </script>
 
 </body>
