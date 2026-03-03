@@ -1,187 +1,242 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>影と光の迷路 Lv1</title>
-<style>
-body {
-  background: #111;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-family: Arial, sans-serif;
-  margin: 0;
-  height: 100vh;
-  justify-content: center;
-}
-canvas {
-  background: #000;
-  border: 3px solid #fff;
-}
-h1 { margin-bottom: 5px; }
-#instructions { font-size: 14px; margin-top: 5px; }
-#message {
-  position: absolute;
-  top: 40%;
-  font-size: 40px;
-  color: yellow;
-  display: none;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echo Shifter - 完全オリジナルゲーム</title>
+    <style>
+        body {
+            margin: 0;
+            background: #050505;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            border: 2px solid #333;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            text-shadow: 0 0 10px #00ffcc;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: transparent;
+            color: #00ffcc;
+            border: 2px solid #00ffcc;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #00ffcc;
+            color: #000;
+        }
+
+        #msg { margin-bottom: 20px; font-size: 18px; text-align: center; line-height: 1.6; }
+    </style>
 </head>
 <body>
 
-<h1 id="levelTitle">影と光の迷路 Lv1</h1>
-<canvas id="game" width="400" height="400"></canvas>
-<div id="instructions">矢印キーで移動。光で道を探せ！</div>
-<div id="message">クリア！</div>
+<div id="game-container">
+    <canvas id="canvas"></canvas>
+    
+    <div class="ui">
+        <div>ECHO ENERGY: <span id="energy">100</span>%</div>
+        <div>DEPTH: <span id="depth">0</span>m</div>
+    </div>
+
+    <div id="menu" class="overlay">
+        <h1>ECHO SHIFTER</h1>
+        <div id="msg">
+            世界は闇に包まれている。<br>
+            クリックして「音波」を放ち、一瞬だけ見える地形を頼りに<br>
+            右端のゴール（光の粒子）を目指せ。<br>
+            エネルギーが切れる前に、闇を駆け抜けろ。
+        </div>
+        <button onclick="startGame()">ダイブ開始</button>
+    </div>
+</div>
 
 <script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const SIZE = 20;
-const ROWS = canvas.height / SIZE;
-const COLS = canvas.width / SIZE;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 800;
+    canvas.height = 500;
 
-let level = 1;
-let score = 0;
+    let gameState = 'MENU';
+    let player = { x: 50, y: 250, radius: 8, targetY: 250 };
+    let ripples = [];
+    let walls = [];
+    let goal = { x: 750, y: 250 };
+    let energy = 100;
+    let score = 0;
 
-let player = {x:1, y:1};
-let lightRadius = 5;
-let enemies = [];
-
-function createMaze(level){
-  let maze = [];
-  for(let y=0;y<ROWS;y++){
-    maze[y]=[];
-    for(let x=0;x<COLS;x++){
-      if(y===0||x===0||y===ROWS-1||x===COLS-1) maze[y][x]=1;
-      else maze[y][x]=Math.random() < 0.15 + level*0.05 ? 1:0; // レベルで壁増加
+    // ステージ生成（見えない壁）
+    function initStage() {
+        walls = [];
+        for (let i = 0; i < 8; i++) {
+            walls.push({
+                x: 150 + i * 80,
+                y: Math.random() * 300 + 50,
+                w: 30,
+                h: 150
+            });
+        }
+        goal.y = Math.random() * 400 + 50;
     }
-  }
-  maze[1][1]=0; // プレイヤースタート
-  maze[ROWS-2][COLS-2]=0; // ゴール
-  return maze;
-}
 
-function createEnemies(level){
-  let enemyList = [];
-  for(let i=0;i<level;i++){
-    let ex, ey;
-    do{
-      ex = Math.floor(Math.random()*(COLS-2))+1;
-      ey = Math.floor(Math.random()*(ROWS-2))+1;
-    } while(maze[ey][ex]!==0 || (ex===1 && ey===1) || (ex===COLS-2 && ey===ROWS-2));
-    enemyList.push({x:ex, y:ey});
-  }
-  return enemyList;
-}
-
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // 迷路
-  for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      let dx = x - player.x;
-      let dy = y - player.y;
-      if(Math.sqrt(dx*dx + dy*dy) <= lightRadius){
-        if(maze[y][x]===1) ctx.fillStyle = '#fff';
-        else ctx.fillStyle = '#444';
-        ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
-      }
+    function startGame() {
+        document.getElementById('menu').style.display = 'none';
+        energy = 100;
+        player.x = 50;
+        initStage();
+        gameState = 'PLAY';
+        requestAnimationFrame(update);
     }
-  }
 
-  // 敵
-  enemies.forEach(e=>{
-    let dx = e.x - player.x;
-    let dy = e.y - player.y;
-    if(Math.sqrt(dx*dx + dy*dy) <= lightRadius){
-      ctx.fillStyle='red';
-      ctx.fillRect(e.x*SIZE,e.y*SIZE,SIZE,SIZE);
+    // クリックで音波を放つ
+    canvas.addEventListener('mousedown', (e) => {
+        if (gameState !== 'PLAY') return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // 波紋を追加
+        ripples.push({ x: player.x, y: player.y, r: 0, maxR: 300, life: 1.0 });
+        energy -= 5;
+        
+        // プレイヤーをマウスの高さへ移動（微調整）
+        player.targetY = mouseY;
+    });
+
+    function update() {
+        if (gameState !== 'PLAY') return;
+
+        // エネルギー減少
+        energy -= 0.05;
+        document.getElementById('energy').innerText = Math.floor(energy);
+        document.getElementById('depth').innerText = Math.floor(player.x);
+
+        // プレイヤー移動
+        player.x += 1.5;
+        player.y += (player.targetY - player.y) * 0.1;
+
+        // 波紋の拡大
+        ripples.forEach((rp, i) => {
+            rp.r += 6;
+            rp.life -= 0.015;
+            if (rp.life <= 0) ripples.splice(i, 1);
+        });
+
+        // 当たり判定
+        walls.forEach(w => {
+            if (player.x + player.radius > w.x && player.x - player.radius < w.x + w.w &&
+                player.y + player.radius > w.y && player.y - player.radius < w.y + w.h) {
+                gameOver("壁に衝突した！");
+            }
+        });
+
+        // ゴール判定
+        if (player.x >= goal.x) {
+            if (Math.abs(player.y - goal.y) < 40) {
+                win();
+            } else {
+                gameOver("ゴールを通り過ぎた...");
+            }
+        }
+
+        if (energy <= 0) gameOver("エネルギー切れ...");
+
+        draw();
+        requestAnimationFrame(update);
     }
-  });
 
-  // プレイヤー
-  ctx.fillStyle = '#0f0';
-  ctx.fillRect(player.x*SIZE,player.y*SIZE,SIZE,SIZE);
+    function draw() {
+        // 背景は常に黒
+        ctx.fillStyle = '#050505';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // ゴール
-  let gx = COLS-2, gy = ROWS-2;
-  let dx = gx - player.x;
-  let dy = gy - player.y;
-  if(Math.sqrt(dx*dx + dy*dy) <= lightRadius){
-    ctx.fillStyle='gold';
-    ctx.fillRect(gx*SIZE, gy*SIZE,SIZE,SIZE);
-  }
-}
+        // 波紋の描画
+        ripples.forEach(rp => {
+            ctx.beginPath();
+            ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(0, 255, 204, ${rp.life})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
 
-function showMessage(text){
-  const msg = document.getElementById('message');
-  msg.innerText = text;
-  msg.style.display = 'block';
-  setTimeout(()=>{ msg.style.display='none'; }, 1500);
-}
+            // 波紋が重なっている間だけ壁を描画
+            walls.forEach(w => {
+                const dist = Math.sqrt(Math.pow((w.x + w.w/2) - rp.x, 2) + Math.pow((w.y + w.h/2) - rp.y, 2));
+                if (Math.abs(dist - rp.r) < 50) {
+                    ctx.fillStyle = `rgba(0, 255, 204, ${rp.life * 0.5})`;
+                    ctx.fillRect(w.x, w.y, w.w, w.h);
+                }
+            });
 
-function resetLevel(){
-  maze = createMaze(level);
-  player={x:1,y:1};
-  lightRadius=5;
-  enemies = createEnemies(level);
-  document.getElementById('levelTitle').innerText = '影と光の迷路 Lv'+level;
-}
+            // ゴールの描画（波紋内のみ）
+            const goalDist = Math.sqrt(Math.pow(goal.x - rp.x, 2) + Math.pow(goal.y - rp.y, 2));
+            if (Math.abs(goalDist - rp.r) < 50) {
+                ctx.beginPath();
+                ctx.arc(goal.x, goal.y, 20, 0, Math.PI*2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${rp.life})`;
+                ctx.fill();
+            }
+        });
 
-function moveEnemies(){
-  enemies.forEach(e=>{
-    const dx = player.x - e.x;
-    const dy = player.y - e.y;
-    if(Math.abs(dx)>Math.abs(dy)){
-      e.x += dx>0?1:-1;
-    } else {
-      e.y += dy>0?1:-1;
+        // プレイヤー（常に少しだけ光る）
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#00ffcc';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00ffcc';
+        ctx.fill();
+        ctx.shadowBlur = 0;
     }
-  });
-}
 
-let maze = createMaze(level);
-let enemies = createEnemies(level);
-
-document.addEventListener('keydown', e=>{
-  let nx=player.x, ny=player.y;
-  if(e.key==='ArrowUp') ny--;
-  else if(e.key==='ArrowDown') ny++;
-  else if(e.key==='ArrowLeft') nx--;
-  else if(e.key==='ArrowRight') nx++;
-  if(maze[ny][nx]===0) player={x:nx,y:ny};
-
-  lightRadius = Math.max(2, lightRadius-0.2); // 光が減る
-
-  moveEnemies();
-
-  // 敵接触判定
-  enemies.forEach((en)=>{
-    if(en.x===player.x && en.y===player.y){
-      alert('ゲームオーバー！スコア:'+score);
-      level=1;
-      score=0;
-      resetLevel();
+    function gameOver(txt) {
+        gameState = 'MENU';
+        document.getElementById('menu').style.display = 'flex';
+        document.getElementById('msg').innerHTML = `<span style="color:red">${txt}</span><br>闇に呑み込まれた。`;
     }
-  });
 
-  // ゴール判定
-  if(player.x===COLS-2 && player.y===ROWS-2){
-    showMessage('クリア！');
-    score += level*10;
-    level++;
-    resetLevel();
-  }
+    function win() {
+        gameState = 'MENU';
+        document.getElementById('menu').style.display = 'flex';
+        document.getElementById('msg').innerHTML = `<span style="color:yellow">SUCCESS</span><br>光に到達した！`;
+    }
 
-  draw();
-});
-
-draw();
 </script>
 </body>
 </html>
