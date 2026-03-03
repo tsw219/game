@@ -2,274 +2,362 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ループ脱出ゲーム</title>
+<title>ループワールド</title>
 
 <style>
-body {
-    margin: 0;
-    font-family: sans-serif;
-    background: #111;
-    color: white;
-    text-align: center;
+
+body{
+    margin:0;
+    background:#000;
+    color:white;
+    font-family:"Segoe UI",sans-serif;
 }
 
-#menu, #game, #clear {
-    display: none;
-    padding: 20px;
+#menu,#game,#clear{
+    display:none;
+    min-height:100vh;
 }
 
-h1 {
-    color: #4fc3f7;
+/* ===== メニュー ===== */
+
+#menu{
+    padding:20px;
+    text-align:center;
 }
 
-button {
-    padding: 10px 20px;
-    margin: 5px;
-    font-size: 16px;
-    cursor: pointer;
+.stageSelect{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:20px;
+    margin-top:30px;
 }
 
-#map {
-    margin: 20px auto;
-    display: grid;
-    grid-template-columns: repeat(7, 50px);
-    grid-template-rows: repeat(7, 50px);
-    gap: 2px;
+.stageCard{
+    background:#111;
+    border:2px solid #444;
+    cursor:pointer;
+    transition:0.3s;
 }
 
-.cell {
-    width: 50px;
-    height: 50px;
-    background: #333;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 22px;
+.stageCard:hover{
+    transform:scale(1.05);
+    border-color:#4fc3f7;
 }
 
-.player {
-    background: #4caf50;
+.stageImg{
+    height:130px;
+    background-size:cover;
+    background-position:center;
 }
 
-.goal {
-    background: gold;
+.stageName{
+    padding:10px;
+    font-size:18px;
 }
 
-.info {
-    margin-top: 10px;
+/* ===== ゲーム画面 ===== */
+
+#game{
+    display:flex;
+    flex-direction:column;
 }
+
+#view{
+    flex:1;
+    background:linear-gradient(#222,#000);
+    padding:30px;
+    font-size:20px;
+    line-height:1.7;
+}
+
+#ui{
+    background:#111;
+    padding:15px;
+    text-align:center;
+}
+
+#ui span{
+    margin:0 15px;
+}
+
+button{
+    padding:8px 15px;
+    background:#222;
+    color:white;
+    border:1px solid #555;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#333;
+}
+
+/* ===== クリア ===== */
+
+#clear{
+    text-align:center;
+    padding-top:100px;
+}
+
 </style>
 </head>
 
 <body>
 
-<!-- メニュー画面 -->
+<!-- ===== メニュー ===== -->
 <div id="menu">
-    <h1>🔁 ループ脱出ゲーム</h1>
 
-    <p>
-        同じ1日を繰り返す世界から脱出しよう。<br>
-        違和感を見つけて行動せよ。
-    </p>
+<h1>🔁 ループワールド</h1>
 
-    <p>
-        🎮 操作：矢印キーで移動
-    </p>
+<p>
+同じ1日を繰り返す世界。<br>
+違和感を見つけ、正しい行動で脱出せよ。
+</p>
 
-    <h3>舞台を選択</h3>
+<p>🎮 操作：↑ ↓ ← → / Enter</p>
 
-    <button onclick="startGame('school')">🏫 不思議な学校</button>
-    <button onclick="startGame('house')">🏠 ループハウス</button>
-    <button onclick="startGame('mall')">🛍 無限モール</button>
-    <button onclick="startGame('library')">📚 夢の図書館</button>
-    <button onclick="startGame('park')">🌌 時空公園</button>
+<div class="stageSelect">
+
+<div class="stageCard" onclick="start('school')">
+<div class="stageImg" style="background-image:linear-gradient(#3a6,#000)"></div>
+<div class="stageName">🏫 不思議な学校</div>
 </div>
 
-<!-- ゲーム画面 -->
+<div class="stageCard" onclick="start('house')">
+<div class="stageImg" style="background-image:linear-gradient(#a63,#000)"></div>
+<div class="stageName">🏠 ループハウス</div>
+</div>
+
+<div class="stageCard" onclick="start('mall')">
+<div class="stageImg" style="background-image:linear-gradient(#66a,#000)"></div>
+<div class="stageName">🛍 無限モール</div>
+</div>
+
+<div class="stageCard" onclick="start('library')">
+<div class="stageImg" style="background-image:linear-gradient(#888,#000)"></div>
+<div class="stageName">📚 夢の図書館</div>
+</div>
+
+</div>
+
+</div>
+
+<!-- ===== ゲーム ===== -->
 <div id="game">
 
-    <h2 id="stageName"></h2>
+<div id="view"></div>
 
-    <div>ループ回数：<span id="loop">1</span></div>
-
-    <div id="map"></div>
-
-    <div class="info" id="message"></div>
-
-    <button onclick="resetLoop()">🔄 やり直す</button>
+<div id="ui">
+<span>日数：<b id="day">1</b></span>
+<span>場所：<b id="place"></b></span>
+<button onclick="nextDay()">🔄 次の日</button>
 </div>
 
-<!-- クリア画面 -->
+</div>
+
+<!-- ===== クリア ===== -->
 <div id="clear">
-    <h1>🎉 脱出成功！</h1>
 
-    <p>
-        ループから抜け出した！
-    </p>
+<h1>🎉 脱出成功</h1>
 
-    <button onclick="backMenu()">🏠 メニューへ</button>
+<p>あなたはループを抜け出した。</p>
+
+<button onclick="backMenu()">🏠 メニュー</button>
+
 </div>
 
 <script>
 
-const menu = document.getElementById("menu");
-const game = document.getElementById("game");
-const clear = document.getElementById("clear");
+const menu=document.getElementById("menu");
+const game=document.getElementById("game");
+const clear=document.getElementById("clear");
 
-const mapDiv = document.getElementById("map");
-const loopSpan = document.getElementById("loop");
-const stageName = document.getElementById("stageName");
-const message = document.getElementById("message");
+const view=document.getElementById("view");
+const daySpan=document.getElementById("day");
+const placeSpan=document.getElementById("place");
 
-let player = { x: 3, y: 3 };
-let loopCount = 1;
-let hasStar = false;
-let currentStage = "";
+let day=1;
+let stage="";
+let place="room";
+let found=false;
 
-const stages = {
-    school: "🏫 不思議な学校",
-    house: "🏠 ループハウス",
-    mall: "🛍 無限モール",
-    library: "📚 夢の図書館",
-    park: "🌌 時空公園"
+/* ===== ステージ設定 ===== */
+
+const stages={
+
+school:{
+name:"不思議な学校",
+places:{
+room:[
+"教室にいる。窓から光が差している。",
+"机の配置が少し違う気がする…",
+"黒板に見覚えのない文字がある。",
+"机の下に小さな鍵が落ちている。"
+],
+hall:[
+"廊下は静かだ。",
+"時計の音がやけに大きい。",
+"時計が逆回りしている。",
+"出口のドアが光っている。"
+]
+}
+},
+
+house:{
+name:"ループハウス",
+places:{
+room:[
+"自分の部屋だ。",
+"ポスターが増えている。",
+"壁にヒビがある。",
+"引き出しにメモがある。"
+],
+kitchen:[
+"キッチンは無人だ。",
+"冷蔵庫が勝手に開く。",
+"中が空っぽだ。",
+"扉が輝いている。"
+]
+}
+},
+
+mall:{
+name:"無限モール",
+places:{
+shop:[
+"服屋にいる。",
+"マネキンが増えた。",
+"全部こっちを見ている。",
+"裏口が光る。"
+],
+food:[
+"フードコートだ。",
+"誰もいない。",
+"時計が止まっている。",
+"出口が見える。"
+]
+}
+},
+
+library:{
+name:"夢の図書館",
+places:{
+desk:[
+"机で勉強している。",
+"本が増えている。",
+"文字が動く。",
+"本棚が開く。"
+],
+shelf:[
+"本棚の前だ。",
+"同じ本ばかりだ。",
+"ページが白い。",
+"扉が現れる。"
+]
+}
+}
+
 };
 
-function showMenu() {
-    menu.style.display = "block";
-    game.style.display = "none";
-    clear.style.display = "none";
+/* ===== 開始 ===== */
+
+function start(s){
+
+stage=s;
+day=1;
+place=Object.keys(stages[s].places)[0];
+found=false;
+
+menu.style.display="none";
+game.style.display="flex";
+clear.style.display="none";
+
+update();
+
 }
 
-function startGame(stage) {
-    currentStage = stage;
-    stageName.textContent = stages[stage];
+/* ===== 表示 ===== */
 
-    loopCount = 1;
-    hasStar = false;
+function update(){
 
-    resetPlayer();
+daySpan.textContent=day;
+placeSpan.textContent=place;
 
-    menu.style.display = "none";
-    game.style.display = "block";
-    clear.style.display = "none";
+let text=
+stages[stage]
+.places[place]
+[Math.min(day-1,3)];
 
-    update();
+view.innerHTML=
+"【"+stages[stage].name+"】<br><br>"+
+text+
+"<br><br>"+
+"← →：移動　Enter：調べる";
+
 }
 
-function resetPlayer() {
-    player.x = 3;
-    player.y = 3;
+/* ===== 移動 ===== */
+
+document.addEventListener("keydown",e=>{
+
+if(game.style.display!=="flex")return;
+
+const keys=Object.keys(stages[stage].places);
+let i=keys.indexOf(place);
+
+if(e.key==="ArrowRight"){
+place=keys[(i+1)%keys.length];
 }
 
-function resetLoop() {
-    loopCount++;
-    hasStar = false;
-
-    resetPlayer();
-    update();
+if(e.key==="ArrowLeft"){
+place=keys[(i-1+keys.length)%keys.length];
 }
 
-function update() {
-
-    loopSpan.textContent = loopCount;
-
-    mapDiv.innerHTML = "";
-
-    let starPos = null;
-
-    // 3回目にだけ出現
-    if (loopCount === 3 && !hasStar) {
-        starPos = { x: 1, y: 1 };
-    }
-
-    for (let y = 0; y < 7; y++) {
-        for (let x = 0; x < 7; x++) {
-
-            const cell = document.createElement("div");
-            cell.className = "cell";
-
-            if (x === player.x && y === player.y) {
-                cell.classList.add("player");
-                cell.textContent = "🙂";
-            }
-
-            else if (starPos && x === starPos.x && y === starPos.y) {
-                cell.classList.add("goal");
-                cell.textContent = "★";
-            }
-
-            mapDiv.appendChild(cell);
-        }
-    }
-
-    if (loopCount < 3) {
-        message.textContent =
-            "何か違和感がある気がする…。";
-    }
-    else if (!hasStar) {
-        message.textContent =
-            "あの★が気になる…。";
-    }
-    else {
-        message.textContent =
-            "出口が見えてきた…。";
-    }
+if(e.key==="Enter"){
+check();
 }
 
-document.addEventListener("keydown", e => {
+update();
 
-    if (game.style.display !== "block") return;
-
-    switch (e.key) {
-
-        case "ArrowUp":
-            if (player.y > 0) player.y--;
-            break;
-
-        case "ArrowDown":
-            if (player.y < 6) player.y++;
-            break;
-
-        case "ArrowLeft":
-            if (player.x > 0) player.x--;
-            break;
-
-        case "ArrowRight":
-            if (player.x < 6) player.x++;
-            break;
-    }
-
-    checkEvent();
-    update();
 });
 
-function checkEvent() {
+/* ===== 調べる ===== */
 
-    // ★取得
-    if (loopCount === 3 &&
-        player.x === 1 &&
-        player.y === 1 &&
-        !hasStar) {
+function check(){
 
-        hasStar = true;
-        message.textContent = "★を手に入れた！";
-    }
-
-    // 脱出
-    if (hasStar &&
-        player.x === 6 &&
-        player.y === 6) {
-
-        game.style.display = "none";
-        clear.style.display = "block";
-    }
+if(day===3 && !found){
+found=true;
+view.innerHTML+="<br><br>⚠ 違和感を発見した！";
 }
 
-function backMenu() {
-    showMenu();
+if(found && day>=4){
+game.style.display="none";
+clear.style.display="block";
 }
 
-showMenu();
+}
+
+/* ===== 日進行 ===== */
+
+function nextDay(){
+
+day++;
+
+if(day>4)day=1;
+
+update();
+
+}
+
+/* ===== 戻る ===== */
+
+function backMenu(){
+menu.style.display="block";
+game.style.display="none";
+clear.style.display="none";
+}
+
+menu.style.display="block";
 
 </script>
 
