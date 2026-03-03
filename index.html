@@ -2,101 +2,186 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>影と光の迷路</title>
+<title>影と光の迷路 Lv1</title>
 <style>
-  body {
-    background: #111;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: Arial, sans-serif;
-    margin: 0;
-    height: 100vh;
-    justify-content: center;
-  }
-  canvas {
-    background: #000;
-    border: 3px solid #fff;
-  }
-  h1 {
-    margin-bottom: 10px;
-  }
-  #instructions {
-    font-size: 14px;
-    margin-top: 5px;
-  }
+body {
+  background: #111;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  height: 100vh;
+  justify-content: center;
+}
+canvas {
+  background: #000;
+  border: 3px solid #fff;
+}
+h1 { margin-bottom: 5px; }
+#instructions { font-size: 14px; margin-top: 5px; }
+#message {
+  position: absolute;
+  top: 40%;
+  font-size: 40px;
+  color: yellow;
+  display: none;
+}
 </style>
 </head>
 <body>
 
-<h1>影と光の迷路</h1>
+<h1 id="levelTitle">影と光の迷路 Lv1</h1>
 <canvas id="game" width="400" height="400"></canvas>
 <div id="instructions">矢印キーで移動。光で道を探せ！</div>
+<div id="message">クリア！</div>
 
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const SIZE = 20; // マスのサイズ
+const SIZE = 20;
 const ROWS = canvas.height / SIZE;
 const COLS = canvas.width / SIZE;
 
-let player = {x:1, y:1};
-let lightRadius = 3;
+let level = 1;
+let score = 0;
 
-// 迷路ランダム生成（簡易版）
-let maze = [];
-for(let y=0;y<ROWS;y++){
-  maze[y]=[];
-  for(let x=0;x<COLS;x++){
-    if(y===0||x===0||y===ROWS-1||x===COLS-1) maze[y][x]=1; // 壁
-    else maze[y][x]=Math.random()<0.2?1:0; // 20%壁
+let player = {x:1, y:1};
+let lightRadius = 5;
+let enemies = [];
+
+function createMaze(level){
+  let maze = [];
+  for(let y=0;y<ROWS;y++){
+    maze[y]=[];
+    for(let x=0;x<COLS;x++){
+      if(y===0||x===0||y===ROWS-1||x===COLS-1) maze[y][x]=1;
+      else maze[y][x]=Math.random() < 0.15 + level*0.05 ? 1:0; // レベルで壁増加
+    }
   }
+  maze[1][1]=0; // プレイヤースタート
+  maze[ROWS-2][COLS-2]=0; // ゴール
+  return maze;
 }
-maze[1][1]=0; // プレイヤースタート
-maze[ROWS-2][COLS-2]=0; // ゴール
+
+function createEnemies(level){
+  let enemyList = [];
+  for(let i=0;i<level;i++){
+    let ex, ey;
+    do{
+      ex = Math.floor(Math.random()*(COLS-2))+1;
+      ey = Math.floor(Math.random()*(ROWS-2))+1;
+    } while(maze[ey][ex]!==0 || (ex===1 && ey===1) || (ex===COLS-2 && ey===ROWS-2));
+    enemyList.push({x:ex, y:ey});
+  }
+  return enemyList;
+}
 
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
+  // 迷路
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       let dx = x - player.x;
       let dy = y - player.y;
       if(Math.sqrt(dx*dx + dy*dy) <= lightRadius){
         if(maze[y][x]===1) ctx.fillStyle = '#fff';
-        else if(x===COLS-2 && y===ROWS-2) ctx.fillStyle='gold';
         else ctx.fillStyle = '#444';
         ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
       }
     }
   }
 
+  // 敵
+  enemies.forEach(e=>{
+    let dx = e.x - player.x;
+    let dy = e.y - player.y;
+    if(Math.sqrt(dx*dx + dy*dy) <= lightRadius){
+      ctx.fillStyle='red';
+      ctx.fillRect(e.x*SIZE,e.y*SIZE,SIZE,SIZE);
+    }
+  });
+
   // プレイヤー
   ctx.fillStyle = '#0f0';
   ctx.fillRect(player.x*SIZE,player.y*SIZE,SIZE,SIZE);
+
+  // ゴール
+  let gx = COLS-2, gy = ROWS-2;
+  let dx = gx - player.x;
+  let dy = gy - player.y;
+  if(Math.sqrt(dx*dx + dy*dy) <= lightRadius){
+    ctx.fillStyle='gold';
+    ctx.fillRect(gx*SIZE, gy*SIZE,SIZE,SIZE);
+  }
 }
 
+function showMessage(text){
+  const msg = document.getElementById('message');
+  msg.innerText = text;
+  msg.style.display = 'block';
+  setTimeout(()=>{ msg.style.display='none'; }, 1500);
+}
+
+function resetLevel(){
+  maze = createMaze(level);
+  player={x:1,y:1};
+  lightRadius=5;
+  enemies = createEnemies(level);
+  document.getElementById('levelTitle').innerText = '影と光の迷路 Lv'+level;
+}
+
+function moveEnemies(){
+  enemies.forEach(e=>{
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    if(Math.abs(dx)>Math.abs(dy)){
+      e.x += dx>0?1:-1;
+    } else {
+      e.y += dy>0?1:-1;
+    }
+  });
+}
+
+let maze = createMaze(level);
+let enemies = createEnemies(level);
+
 document.addEventListener('keydown', e=>{
-  let nx = player.x;
-  let ny = player.y;
+  let nx=player.x, ny=player.y;
   if(e.key==='ArrowUp') ny--;
   else if(e.key==='ArrowDown') ny++;
   else if(e.key==='ArrowLeft') nx--;
   else if(e.key==='ArrowRight') nx++;
   if(maze[ny][nx]===0) player={x:nx,y:ny};
 
+  lightRadius = Math.max(2, lightRadius-0.2); // 光が減る
+
+  moveEnemies();
+
+  // 敵接触判定
+  enemies.forEach((en)=>{
+    if(en.x===player.x && en.y===player.y){
+      alert('ゲームオーバー！スコア:'+score);
+      level=1;
+      score=0;
+      resetLevel();
+    }
+  });
+
   // ゴール判定
   if(player.x===COLS-2 && player.y===ROWS-2){
-    alert('クリア！おめでとう！');
-    // リセット
-    player={x:1,y:1};
+    showMessage('クリア！');
+    score += level*10;
+    level++;
+    resetLevel();
   }
+
   draw();
 });
 
 draw();
 </script>
-
 </body>
 </html>
