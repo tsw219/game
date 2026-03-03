@@ -1,92 +1,200 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>ガチャゲーム</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    background: linear-gradient(to bottom, #ffb347, #ffcc33);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    margin: 0;
-  }
-  h1 {
-    color: #fff;
-    text-shadow: 2px 2px #ff6f61;
-  }
-  #gachaButton {
-    padding: 15px 30px;
-    font-size: 18px;
-    margin: 20px;
-    cursor: pointer;
-    border: none;
-    border-radius: 10px;
-    background-color: #ff6f61;
-    color: white;
-    transition: 0.2s;
-  }
-  #gachaButton:hover {
-    background-color: #ff856f;
-  }
-  #result {
-    margin-top: 20px;
-    font-size: 20px;
-    color: #fff;
-    text-align: center;
-  }
-  .character {
-    font-size: 50px;
-    margin-top: 15px;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sea Side Racing</title>
+    <style>
+        body { margin: 0; background: #87ceeb; font-family: 'Arial', sans-serif; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #game-container { position: relative; width: 600px; height: 400px; background: #eee; border: 8px solid #333; border-radius: 10px; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        /* UI共通 */
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; z-index: 100; }
+        h1 { margin: 0 0 20px; color: #ffeb3b; text-shadow: 2px 2px #f44336; }
+        button { padding: 10px 25px; font-size: 18px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 5px; margin: 5px; transition: 0.2s; }
+        button:hover { background: #45a049; transform: scale(1.1); }
+        
+        /* プレイ中のUI */
+        #hud { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; pointer-events: none; text-shadow: 1px 1px 2px black; }
+        .rank { font-size: 32px; color: #ffeb3b; }
+        
+        #instruction, #course-select, #result { display: none; }
+        #instruction { display: flex; } /* 最初は説明を表示 */
+    </style>
 </head>
 <body>
 
-<h1>ガチャを引こう！</h1>
-<button id="gachaButton">ガチャを回す</button>
-<div id="result"></div>
+<div id="game-container">
+    <canvas id="canvas"></canvas>
+    
+    <div id="hud">
+        <div class="rank"><span id="rank-num">4</span>位</div>
+        <div>SPEED: <span id="speed-val">0</span> km/h</div>
+    </div>
+
+    <div id="instruction" class="overlay">
+        <h1>Sea Side Racing</h1>
+        <p>【操作方法】<br>左右キー (← →) または<br>画面の左右をクリックしてハンドル操作！</p>
+        <button onclick="showCourseSelect()">コース選択へ</button>
+    </div>
+
+    <div id="course-select" class="overlay">
+        <h1>コースを選んでね</h1>
+        <button onclick="startGame(0.5)">初級：シーサイド・ストレート</button>
+        <button onclick="startGame(1.5)">中級 : ワインディング・ロード</button>
+        <button onclick="startGame(3.0)">上級 : デビル・ヘアピン</button>
+    </div>
+
+    <div id="result" class="overlay">
+        <h1 id="res-title">FINISH!</h1>
+        <p id="res-stat"></p>
+        <button onclick="location.reload()">もう一度遊ぶ</button>
+    </div>
+</div>
 
 <script>
-  const characters = [
-    {name: "☆SSRキャラクター☆", emoji: "🌟", rarity: "SSR"},
-    {name: "☆SRキャラクター☆", emoji: "✨", rarity: "SR"},
-    {name: "☆Rキャラクター☆", emoji: "💫", rarity: "R"},
-    {name: "☆Nキャラクター☆", emoji: "⭐", rarity: "N"}
-  ];
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 600; canvas.height = 400;
 
-  const probabilities = {
-    SSR: 5,  // 5%
-    SR: 15,  // 15%
-    R: 30,   // 30%
-    N: 50    // 50%
-  };
+    let gameActive = false;
+    let playerX = 0;
+    let speed = 0;
+    let distance = 0;
+    let trackCurveIntensity = 0;
+    let finishLine = 10000; // ゴールまでの距離
+    
+    // CPUカーの設定
+    let rivals = [
+        { x: -0.5, dist: 100, speed: 45, color: '#f44336' },
+        { x: 0.5, dist: 200, speed: 48, color: '#2196f3' },
+        { x: 0, dist: 300, speed: 42, color: '#ff9800' }
+    ];
 
-  function getRandomCharacter() {
-    const rand = Math.random() * 100;
-    let cumulative = 0;
+    const keys = { left: false, right: false };
+    window.addEventListener('keydown', e => { if(e.key.includes('Left')) keys.left = true; if(e.key.includes('Right')) keys.right = true; });
+    window.addEventListener('keyup', e => { if(e.key.includes('Left')) keys.left = false; if(e.key.includes('Right')) keys.right = false; });
+    canvas.addEventListener('mousedown', e => { const r = canvas.getBoundingClientRect(); if(e.clientX - r.left < 300) keys.left = true; else keys.right = true; });
+    window.addEventListener('mouseup', () => { keys.left = false; keys.right = false; });
 
-    for (let rarity of ["SSR","SR","R","N"]) {
-      cumulative += probabilities[rarity];
-      if (rand < cumulative) {
-        return characters.find(c => c.rarity === rarity);
-      }
+    function showCourseSelect() {
+        document.getElementById('instruction').style.display = 'none';
+        document.getElementById('course-select').style.display = 'flex';
     }
-  }
 
-  document.getElementById("gachaButton").addEventListener("click", () => {
-    const character = getRandomCharacter();
-    const resultDiv = document.getElementById("result");
-    resultDiv.innerHTML = `
-      <div class="character">${character.emoji}</div>
-      <div>${character.name}</div>
-      <div>レアリティ: ${character.rarity}</div>
-    `;
-  });
+    function startGame(intensity) {
+        trackCurveIntensity = intensity;
+        document.getElementById('course-select').style.display = 'none';
+        gameActive = true;
+        update();
+    }
+
+    function update() {
+        if (!gameActive) return;
+
+        // 加速・自車移動
+        speed = Math.min(speed + 0.2, 50);
+        distance += speed;
+        if (keys.left) playerX -= 0.05;
+        if (keys.right) playerX += 0.05;
+
+        // カーブ計算
+        let currentCurve = Math.sin(distance * 0.001) * trackCurveIntensity;
+        playerX -= currentCurve * (speed / 500);
+
+        // CPUの移動
+        rivals.forEach(r => {
+            r.dist += r.speed;
+            r.x += Math.sin(distance * 0.001) * 0.01; // 少しふらふらさせる
+        });
+
+        // 順位計算
+        let allCars = [{id:'me', d: distance}, ...rivals.map((r,i)=>({id:i, d:r.dist}))];
+        allCars.sort((a,b) => b.d - a.d);
+        let myRank = allCars.findIndex(c => c.id === 'me') + 1;
+        document.getElementById('rank-num').innerText = myRank;
+        document.getElementById('speed-val').innerText = Math.floor(speed * 4);
+
+        // ゴール判定
+        if (distance > finishLine) {
+            gameActive = false;
+            showResult(myRank);
+            return;
+        }
+
+        draw(currentCurve);
+        requestAnimationFrame(update);
+    }
+
+    function draw(curve) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 空
+        ctx.fillStyle = '#87ceeb';
+        ctx.fillRect(0, 0, canvas.width, 200);
+        
+        // 太陽
+        ctx.fillStyle = '#fff176';
+        ctx.beginPath(); ctx.arc(500, 50, 30, 0, Math.PI*2); ctx.fill();
+
+        // 道路描画
+        for (let i = 20; i > 0; i--) {
+            let z = i / 20;
+            let y = 200 + (1/z) * 10;
+            let py = 200 + (1/((i-1)/20)) * 10;
+            let w = 400 / z;
+            let pw = 400 / ((i-1)/20);
+            let off = (canvas.width/2) + (Math.sin((distance + i*50) * 0.001) * trackCurveIntensity * 50);
+
+            // 芝生
+            ctx.fillStyle = (Math.floor(distance*0.05)+i)%2===0 ? '#4caf50' : '#81c784';
+            ctx.fillRect(0, y, canvas.width, py-y);
+
+            // アスファルト
+            ctx.fillStyle = '#555';
+            ctx.beginPath();
+            ctx.moveTo(off - w, y); ctx.lineTo(off + w, y);
+            ctx.lineTo(off + pw, py); ctx.lineTo(off - pw, py);
+            ctx.fill();
+
+            // 白線
+            if ((Math.floor(distance*0.05)+i)%2===0) {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(off - 5, y, 10, py-y);
+            }
+        }
+
+        // ライバル車の描画
+        rivals.forEach(r => {
+            let relativeDist = r.dist - distance;
+            if (relativeDist > 0 && relativeDist < 2000) {
+                let rz = 1 - (relativeDist / 2000);
+                if (rz > 0) {
+                    let ry = 200 + (1/(1-rz)) * 5;
+                    let rw = 200 / (1-rz);
+                    let rx = (canvas.width/2) + (r.x - playerX) * rw;
+                    ctx.fillStyle = r.color;
+                    ctx.fillRect(rx - 15/rz, 380 - (relativeDist/5), 30/rz, 20/rz);
+                }
+            }
+        });
+
+        // 自車 (プレイヤー)
+        ctx.fillStyle = '#ffffff'; // 白いスポーツカー
+        ctx.fillRect(canvas.width/2 - 40, 330, 80, 30);
+        ctx.fillStyle = '#333'; // タイヤ
+        ctx.fillRect(canvas.width/2 - 45, 345, 10, 15);
+        ctx.fillRect(canvas.width/2 + 35, 345, 10, 15);
+        ctx.fillStyle = '#2196f3'; // 窓
+        ctx.fillRect(canvas.width/2 - 30, 335, 60, 10);
+    }
+
+    function showResult(rank) {
+        document.getElementById('result').style.display = 'flex';
+        document.getElementById('res-stat').innerText = `あなたの順位は ${rank} 位でした！`;
+        if(rank === 1) document.getElementById('res-title').innerText = "🏆優勝！おめでとう！";
+    }
 </script>
-
 </body>
 </html>
