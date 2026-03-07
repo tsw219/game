@@ -3,36 +3,48 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Coin Survival</title>
 
 <style>
 
 body{
 margin:0;
-background:linear-gradient(#87ceeb,#4aa3ff);
+overflow:hidden;
 font-family:sans-serif;
-text-align:center;
-}
-
-h2{
-margin-top:10px;
+background:linear-gradient(#87ceeb,#4aa3ff);
 }
 
 canvas{
-background:#6ecb63;
-margin-top:10px;
-border-radius:10px;
-box-shadow:0 0 10px rgba(0,0,0,0.3);
+display:block;
+}
+
+#ui{
+position:absolute;
+top:20px;
+left:20px;
+color:black;
+font-size:22px;
+}
+
+#menu{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+text-align:center;
+background:white;
+padding:30px;
+border-radius:15px;
+box-shadow:0 0 20px rgba(0,0,0,0.3);
 }
 
 button{
-margin-top:10px;
-padding:10px 20px;
-font-size:18px;
+font-size:20px;
+padding:10px 25px;
 border:none;
-border-radius:8px;
+border-radius:10px;
 background:#ffcc00;
 cursor:pointer;
+margin-top:10px;
 }
 
 button:hover{
@@ -44,31 +56,62 @@ background:#ffd84d;
 
 <body>
 
-<h2>Coin Survival</h2>
-<p>矢印キーで移動 / コインを集める / 敵に当たるとゲームオーバー</p>
+<canvas id="game"></canvas>
 
-<canvas id="game" width="600" height="400"></canvas><br>
-<button onclick="restartGame()">Restart</button>
+<div id="ui"></div>
+
+<div id="menu">
+<h2>Coin Survival</h2>
+<p>
+矢印キーで移動<br>
+コインを集める<br>
+敵に当たるとゲームオーバー
+</p>
+<button onclick="startGame()">START</button>
+</div>
 
 <script>
 
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-let player;
-let enemies;
-let coins;
-let score;
-let gameOver;
+let w=window.innerWidth;
+let h=window.innerHeight;
 
+canvas.width=w;
+canvas.height=h;
+
+window.onresize=()=>{
+w=window.innerWidth;
+h=window.innerHeight;
+canvas.width=w;
+canvas.height=h;
+}
+
+let player,enemies,coins,score,highScore=0,gameOver=false;
 let keys={};
 
 document.addEventListener("keydown",e=>keys[e.key]=true);
 document.addEventListener("keyup",e=>keys[e.key]=false);
 
+function startGame(){
+
+document.getElementById("menu").style.display="none";
+
+player={x:w/2,y:h/2,size:25,speed:4};
+enemies=[];
+coins=[];
+score=0;
+gameOver=false;
+
+spawnCoin();
+
+}
+
 function restartGame(){
 
-player={x:300,y:200,size:25,speed:4};
+player.x=w/2;
+player.y=h/2;
 
 enemies=[];
 coins=[];
@@ -83,13 +126,12 @@ spawnCoin();
 function spawnEnemy(){
 
 let side=Math.floor(Math.random()*4);
+let enemy={size:26,speed:1.5};
 
-let enemy={size:26,speed:1.2};
-
-if(side===0){enemy.x=0;enemy.y=Math.random()*400;}
-if(side===1){enemy.x=600;enemy.y=Math.random()*400;}
-if(side===2){enemy.x=Math.random()*600;enemy.y=0;}
-if(side===3){enemy.x=Math.random()*600;enemy.y=400;}
+if(side===0){enemy.x=0;enemy.y=Math.random()*h;}
+if(side===1){enemy.x=w;enemy.y=Math.random()*h;}
+if(side===2){enemy.x=Math.random()*w;enemy.y=0;}
+if(side===3){enemy.x=Math.random()*w;enemy.y=h;}
 
 enemies.push(enemy);
 
@@ -98,8 +140,8 @@ enemies.push(enemy);
 function spawnCoin(){
 
 coins.push({
-x:Math.random()*560+20,
-y:Math.random()*360+20,
+x:Math.random()*(w-40)+20,
+y:Math.random()*(h-40)+20,
 size:12
 });
 
@@ -116,8 +158,8 @@ if(keys["ArrowDown"])player.y+=player.speed;
 if(keys["ArrowLeft"])player.x-=player.speed;
 if(keys["ArrowRight"])player.x+=player.speed;
 
-player.x=Math.max(0,Math.min(600-player.size,player.x));
-player.y=Math.max(0,Math.min(400-player.size,player.y));
+player.x=Math.max(0,Math.min(w-player.size,player.x));
+player.y=Math.max(0,Math.min(h-player.size,player.y));
 
 enemyTimer++;
 
@@ -137,6 +179,11 @@ enemy.y+=dy/dist*enemy.speed;
 
 if(dist<25){
 gameOver=true;
+
+if(score>highScore){
+highScore=score;
+}
+
 }
 
 }
@@ -217,7 +264,7 @@ ctx.stroke();
 
 function draw(){
 
-ctx.clearRect(0,0,600,400);
+ctx.clearRect(0,0,w,h);
 
 for(let coin of coins){
 drawCoin(coin);
@@ -230,30 +277,39 @@ drawEnemy(enemy);
 drawPlayer();
 
 ctx.fillStyle="black";
-ctx.font="20px sans-serif";
-ctx.fillText("Score: "+score,10,25);
+ctx.font="24px sans-serif";
+
+document.getElementById("ui").innerHTML=
+"Score: "+score+"<br>High Score: "+highScore;
 
 if(gameOver){
 
-ctx.fillStyle="black";
-ctx.font="40px sans-serif";
-ctx.fillText("GAME OVER",200,200);
+ctx.font="50px sans-serif";
+ctx.fillText("GAME OVER",w/2-150,h/2);
+
+ctx.font="25px sans-serif";
+ctx.fillText("Press R to Restart",w/2-100,h/2+40);
 
 }
 
 }
 
-function gameLoop(){
+document.addEventListener("keydown",e=>{
+if(e.key==="r"&&gameOver){
+restartGame();
+}
+});
+
+function loop(){
 
 update();
 draw();
 
-requestAnimationFrame(gameLoop);
+requestAnimationFrame(loop);
 
 }
 
-restartGame();
-gameLoop();
+loop();
 
 </script>
 
