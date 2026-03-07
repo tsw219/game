@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Mini Kart</title>
+<title>Mini Kart Race</title>
 
 <style>
 body{
@@ -13,22 +13,18 @@ font-family:sans-serif;
 }
 
 canvas{
-background:#2b2b2b;
+background:#1f1f1f;
 border:3px solid white;
 display:block;
 margin:auto;
-}
-
-h1{
-margin:10px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🏎️ Mini Kart</h1>
-<p>↑加速 ↓ブレーキ ←→ハンドル</p>
+<h1>🏎 Mini Kart Race</h1>
+<p>↑前進 ↓ブレーキ ←→ハンドル　黄色を取ると加速</p>
 
 <canvas id="game" width="800" height="500"></canvas>
 
@@ -38,58 +34,62 @@ const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
 let keys={}
-
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
 
 let player={
 x:400,
-y:350,
-speed:0,
-angle:0
+y:420,
+speed:0
 }
 
 let enemies=[
-{x:300,y:200,speed:2},
-{x:500,y:150,speed:2.3}
+{x:250,y:100},
+{x:550,y:200}
 ]
 
 let boosts=[]
-
-for(let i=0;i<5;i++){
+for(let i=0;i<6;i++){
 boosts.push({
-x:Math.random()*700+50,
+x:Math.random()*500+150,
 y:Math.random()*400+50
 })
 }
 
 function update(){
 
-if(keys["ArrowUp"]) player.speed+=0.1
-if(keys["ArrowDown"]) player.speed-=0.1
+// プレイヤー
+if(keys["ArrowUp"]) player.speed+=0.2
+if(keys["ArrowDown"]) player.speed-=0.2
 
-player.speed*=0.98
+player.speed*=0.95
 
-if(keys["ArrowLeft"]) player.angle-=0.05
-if(keys["ArrowRight"]) player.angle+=0.05
+player.y-=player.speed
 
-player.x+=Math.cos(player.angle)*player.speed
-player.y+=Math.sin(player.angle)*player.speed
+if(keys["ArrowLeft"]) player.x-=4
+if(keys["ArrowRight"]) player.x+=4
+
+// 壁
+if(player.x<120) player.x=120
+if(player.x>680) player.x=680
 
 // 敵
 for(let e of enemies){
 
-let dx=player.x-e.x
-let dy=player.y-e.y
-let dist=Math.sqrt(dx*dx+dy*dy)
+e.y+=2
 
-if(dist<30){
-player.speed*=0.5
+if(e.y>550){
+e.y=-50
+e.x=Math.random()*500+150
 }
 
-e.y+=e.speed
+let dx=player.x-e.x
+let dy=player.y-e.y
 
-if(e.y>500) e.y=-50
+if(Math.sqrt(dx*dx+dy*dy)<25){
+player.speed*=0.4
+}
+
 }
 
 // ブースト
@@ -98,11 +98,18 @@ for(let b of boosts){
 let dx=player.x-b.x
 let dy=player.y-b.y
 
-if(Math.sqrt(dx*dx+dy*dy)<25){
-player.speed+=3
+if(Math.sqrt(dx*dx+dy*dy)<20){
 
-b.x=Math.random()*700+50
-b.y=Math.random()*400+50
+player.speed+=4
+
+b.y=-50
+b.x=Math.random()*500+150
+}
+
+b.y+=2
+
+if(b.y>520){
+b.y=-50
 }
 
 }
@@ -113,40 +120,33 @@ function draw(){
 
 ctx.clearRect(0,0,800,500)
 
+// 草
+ctx.fillStyle="green"
+ctx.fillRect(0,0,800,500)
+
 // 道
 ctx.fillStyle="#444"
-ctx.fillRect(100,0,600,500)
+ctx.fillRect(120,0,560,500)
 
 // ブースト
 ctx.fillStyle="yellow"
 
 for(let b of boosts){
-
 ctx.beginPath()
 ctx.arc(b.x,b.y,10,0,Math.PI*2)
 ctx.fill()
-
 }
 
 // 敵
 ctx.fillStyle="red"
 
 for(let e of enemies){
-
 ctx.fillRect(e.x-10,e.y-10,20,20)
-
 }
 
 // プレイヤー
-ctx.save()
-
-ctx.translate(player.x,player.y)
-ctx.rotate(player.angle)
-
 ctx.fillStyle="cyan"
-ctx.fillRect(-12,-12,24,24)
-
-ctx.restore()
+ctx.fillRect(player.x-12,player.y-12,24,24)
 
 }
 
