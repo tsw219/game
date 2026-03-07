@@ -4,20 +4,20 @@
 <head>
 <meta charset="UTF-8">
 <title>Coin Survival</title>
+
 <style>
+
 html,body{
 margin:0;
 padding:0;
 overflow:hidden;
-font-family:sans-serif;
 background:#0f172a;
 color:white;
+font-family:sans-serif;
 }
 
-#menu, #gameOver{
+#menu,#gameover{
 position:absolute;
-top:0;
-left:0;
 width:100%;
 height:100%;
 display:flex;
@@ -27,10 +27,6 @@ justify-content:center;
 background:#0f172a;
 }
 
-h1{
-margin-bottom:10px;
-}
-
 button{
 padding:10px 20px;
 font-size:16px;
@@ -38,70 +34,75 @@ cursor:pointer;
 margin-top:10px;
 }
 
-#rules{
-max-width:500px;
-text-align:center;
-line-height:1.6;
-margin-bottom:20px;
-}
-
-#leaderboard{
-margin-top:20px;
+#ui{
+position:absolute;
+top:10px;
+left:10px;
+font-size:18px;
 }
 
 canvas{
 display:block;
 }
 
-#ui{
-position:absolute;
-top:10px;
-left:10px;
-font-size:18px;
-} </style>
+</style>
 
 </head>
+
 <body>
 
 <div id="menu">
+
 <h1>Coin Survival</h1>
 
-<div id="rules">
-矢印キーで移動してコインを集めよう。<br>
-敵に当たるとゲームオーバー。<br>
-Shiftで一瞬だけ高速移動（10秒後に再使用可能）。
+<div>
+矢印キーで移動<br>
+コインを集めてスコアアップ<br>
+敵に当たるとゲームオーバー<br>
+Shiftで一瞬ダッシュ
 </div>
 
-<input id="nameInput" placeholder="プレイヤー名 (空欄OK)">
+<br>
+
+<input id="nameInput" placeholder="プレイヤー名">
 
 <button onclick="startGame()">START</button>
 
-<div id="leaderboard"></div>
+<h3>Top5</h3>
+<div id="top5"></div>
+
 </div>
 
-<div id="gameOver" style="display:none">
+<div id="gameover" style="display:none">
+
 <h1>GAME OVER</h1>
+
 <div id="finalScore"></div>
-<div id="fullRanking"></div>
-<button onclick="backToMenu()">最初の画面へ</button>
+
+<h3>Ranking</h3>
+<div id="ranking"></div>
+
+<button onclick="backMenu()">最初の画面へ</button>
+
 </div>
 
 <div id="ui" style="display:none">
-Score: <span id="score">0</span>
-<br>
-⚡ Dash: <span id="dashStatus">Ready</span>
+
+Score: <span id="score">0</span><br>
+Dash: <span id="dash">Ready</span>
+
 </div>
 
 <canvas id="game"></canvas>
 
 <script>
 
-const canvas = document.getElementById("game")
-const ctx = canvas.getContext("2d")
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
 
 function resize(){
-canvas.width = window.innerWidth
-canvas.height = window.innerHeight
+canvas.width=window.innerWidth
+canvas.height=window.innerHeight
 }
 resize()
 window.addEventListener("resize",resize)
@@ -117,24 +118,28 @@ let playerName=""
 const keys={}
 
 document.addEventListener("keydown",e=>{
+
 keys[e.key]=true
 
 if(e.key==="Shift" && dashCooldown<=0){
+
 player.speed=8
 setTimeout(()=>player.speed=4,200)
 
 dashCooldown=10
+
 }
+
 })
 
 document.addEventListener("keyup",e=>keys[e.key]=false)
 
 function startGame(){
 
-const input=document.getElementById("nameInput").value.trim()
+let input=document.getElementById("nameInput").value.trim()
 
 if(input===""){
-playerName=getNextPlayerName()
+playerName=generatePlayer()
 }else{
 playerName=input
 }
@@ -149,7 +154,6 @@ speed:4
 enemies=[]
 coins=[]
 score=0
-
 dashCooldown=0
 
 spawnEnemies(5)
@@ -161,34 +165,43 @@ menu.style.display="none"
 ui.style.display="block"
 
 loop()
+
 }
 
 function spawnEnemies(n){
+
 for(let i=0;i<n;i++){
+
 enemies.push({
 x:Math.random()*canvas.width,
 y:Math.random()*canvas.height,
 size:20,
 speed:2+Math.random()*1.5
 })
+
 }
+
 }
 
 function spawnCoin(){
+
 coins.push({
 x:Math.random()*canvas.width,
 y:Math.random()*canvas.height,
 size:10
 })
+
 }
 
 function loop(){
+
 if(!running)return
 
 update()
 draw()
 
 requestAnimationFrame(loop)
+
 }
 
 function update(){
@@ -200,31 +213,33 @@ if(keys["ArrowRight"]) player.x+=player.speed
 
 for(const e of enemies){
 
-const dx=player.x-e.x
-const dy=player.y-e.y
-const d=Math.hypot(dx,dy)
+let dx=player.x-e.x
+let dy=player.y-e.y
+let d=Math.hypot(dx,dy)
 
-if(d>0){
 e.x+=dx/d*e.speed
-
 e.y+=dy/d*e.speed
-}
 
-if(d < player.size + e.size){
+if(d<player.size+e.size){
 endGame()
 }
+
 }
 
 for(let i=coins.length-1;i>=0;i--){
-const c=coins[i]
 
-const d=Math.hypot(player.x-c.x,player.y-c.y)
+let c=coins[i]
 
-if(d < player.size + c.size){
+let d=Math.hypot(player.x-c.x,player.y-c.y)
+
+if(d<player.size+c.size){
+
 coins.splice(i,1)
 score++
 spawnCoin()
+
 }
+
 }
 
 if(enemies.length<12 && Math.random()<0.01){
@@ -237,93 +252,111 @@ dashCooldown-=1/60
 
 scoreEl.textContent=score
 
-dashStatus.textContent = dashCooldown>0 ? Math.ceil(dashCooldown)+"s" : "Ready"
+dash.textContent=dashCooldown>0?Math.ceil(dashCooldown)+"s":"Ready"
 
 }
 
 function draw(){
+
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
 ctx.fillStyle="yellow"
+
 for(const c of coins){
+
 ctx.beginPath()
 ctx.arc(c.x,c.y,c.size,0,Math.PI*2)
 ctx.fill()
+
 }
 
 ctx.fillStyle="red"
+
 for(const e of enemies){
+
 ctx.beginPath()
 ctx.arc(e.x,e.y,e.size,0,Math.PI*2)
 ctx.fill()
+
 }
 
 ctx.fillStyle="cyan"
+
 ctx.beginPath()
 ctx.arc(player.x,player.y,player.size,0,Math.PI*2)
 ctx.fill()
+
 }
 
 function endGame(){
+
 running=false
 
 saveScore()
 
 ui.style.display="none"
 
-gameOver.style.display="flex"
+gameover.style.display="flex"
 
 finalScore.textContent="Score: "+score
 
-showFullRanking()
+showRanking()
+
 }
 
-function backToMenu(){
+function backMenu(){
 
-gameOver.style.display="none"
+gameover.style.display="none"
 menu.style.display="flex"
 
 showTop5()
+
 }
 
 function loadScores(){
+
 return JSON.parse(localStorage.getItem("scores")||"{}")
+
 }
 
 function saveScore(){
-const scores=loadScores()
+
+let scores=loadScores()
 
 if(!scores[playerName] || score>scores[playerName]){
 scores[playerName]=score
 }
 
 localStorage.setItem("scores",JSON.stringify(scores))
+
 }
 
 function showTop5(){
-const scores=loadScores()
 
-const arr=Object.entries(scores)
+let scores=loadScores()
+
+let arr=Object.entries(scores)
 .sort((a,b)=>b[1]-a[1])
 .slice(0,5)
 
-leaderboard.innerHTML="<h3>Top5</h3>"+
-arr.map((s,i)=>`${i+1}. ${s[0]} : ${s[1]}`).join("<br>")
+top5.innerHTML=arr.map((s,i)=>`${i+1}. ${s[0]} : ${s[1]}`).join("<br>")
+
 }
 
-function showFullRanking(){
-const scores=loadScores()
+function showRanking(){
 
-const arr=Object.entries(scores)
+let scores=loadScores()
+
+let arr=Object.entries(scores)
 .sort((a,b)=>b[1]-a[1])
 
-fullRanking.innerHTML="<h3>Ranking</h3>"+
-arr.map((s,i)=>`${i+1}. ${s[0]} : ${s[1]}`).join("<br>")
+ranking.innerHTML=arr.map((s,i)=>`${i+1}. ${s[0]} : ${s[1]}`).join("<br>")
+
 }
 
-function getNextPlayerName(){
+function generatePlayer(){
 
-const scores=loadScores()
+let scores=loadScores()
 
 let i=1
 
@@ -332,7 +365,10 @@ i++
 }
 
 return "Player"+i
+
 }
+
+const scoreEl=document.getElementById("score")
 
 showTop5()
 
