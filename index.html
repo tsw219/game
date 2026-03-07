@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html>
 <head>
@@ -9,7 +10,7 @@ body{
 margin:0;
 overflow:hidden;
 font-family:sans-serif;
-background:linear-gradient(#87ceeb,#4aa3ff);
+background:#87c97a;
 }
 
 canvas{
@@ -46,8 +47,17 @@ background:#ffd84d;
 position:absolute;
 top:15px;
 left:20px;
-font-size:22px;
+font-size:24px;
 color:black;
+}
+
+#gameOverUI{
+display:none;
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+text-align:center;
 }
 
 </style>
@@ -67,6 +77,11 @@ color:black;
 敵に当たるとゲームオーバー
 </p>
 <button onclick="startGame()">START</button>
+</div>
+
+<div id="gameOverUI">
+<h1>GAME OVER</h1>
+<button onclick="restartGame()">Restart</button>
 </div>
 
 <script>
@@ -94,6 +109,8 @@ let score=0;
 let highScore=0;
 let gameOver=false;
 
+let enemySpeed=1.1;
+
 let keys={};
 
 document.addEventListener("keydown",e=>keys[e.key]=true);
@@ -106,13 +123,14 @@ document.getElementById("menu").style.display="none";
 player={
 x:w/2,
 y:h/2,
-size:25,
+size:22,
 speed:4
 };
 
 enemies=[];
 coins=[];
 score=0;
+enemySpeed=1.1;
 gameOver=false;
 
 spawnCoin();
@@ -121,13 +139,15 @@ spawnCoin();
 
 function restartGame(){
 
+document.getElementById("gameOverUI").style.display="none";
+
 player.x=w/2;
 player.y=h/2;
 
 enemies=[];
 coins=[];
-
 score=0;
+enemySpeed=1.1;
 gameOver=false;
 
 spawnCoin();
@@ -137,7 +157,8 @@ spawnCoin();
 function spawnEnemy(){
 
 let side=Math.floor(Math.random()*4);
-let enemy={size:26,speed:1.5};
+
+let enemy={size:24,speed:enemySpeed};
 
 if(side===0){enemy.x=0;enemy.y=Math.random()*h;}
 if(side===1){enemy.x=w;enemy.y=Math.random()*h;}
@@ -174,7 +195,7 @@ player.y=Math.max(0,Math.min(h,player.y));
 
 enemyTimer++;
 
-if(enemyTimer>70){
+if(enemyTimer>90){
 spawnEnemy();
 enemyTimer=0;
 }
@@ -189,9 +210,11 @@ let dist=Math.sqrt(dx*dx+dy*dy);
 enemy.x+=dx/dist*enemy.speed;
 enemy.y+=dy/dist*enemy.speed;
 
-if(dist<25){
+if(dist<24){
 
 gameOver=true;
+
+document.getElementById("gameOverUI").style.display="block";
 
 if(score>highScore){
 highScore=score;
@@ -208,11 +231,21 @@ let coin=coins[i];
 let dx=player.x-coin.x;
 let dy=player.y-coin.y;
 
-if(Math.sqrt(dx*dx+dy*dy)<25){
+if(Math.sqrt(dx*dx+dy*dy)<24){
 
 score++;
 coins.splice(i,1);
 spawnCoin();
+
+if(score%10===0){
+
+enemySpeed+=0.25;
+
+for(let e of enemies){
+e.speed=enemySpeed;
+}
+
+}
 
 }
 
@@ -222,24 +255,24 @@ spawnCoin();
 
 function drawPlayer(){
 
-ctx.fillStyle="#4fc3f7";
+ctx.fillStyle="#2f7df6";
 
 ctx.beginPath();
-ctx.arc(player.x,player.y,20,0,Math.PI*2);
+ctx.arc(player.x,player.y,18,0,Math.PI*2);
 ctx.fill();
 
 ctx.fillStyle="white";
 
 ctx.beginPath();
-ctx.arc(player.x-7,player.y-5,4,0,Math.PI*2);
-ctx.arc(player.x+7,player.y-5,4,0,Math.PI*2);
+ctx.arc(player.x-6,player.y-4,4,0,Math.PI*2);
+ctx.arc(player.x+6,player.y-4,4,0,Math.PI*2);
 ctx.fill();
 
 ctx.fillStyle="black";
 
 ctx.beginPath();
-ctx.arc(player.x-7,player.y-5,2,0,Math.PI*2);
-ctx.arc(player.x+7,player.y-5,2,0,Math.PI*2);
+ctx.arc(player.x-6,player.y-4,2,0,Math.PI*2);
+ctx.arc(player.x+6,player.y-4,2,0,Math.PI*2);
 ctx.fill();
 
 }
@@ -249,7 +282,7 @@ function drawEnemy(e){
 ctx.fillStyle="#ff4d4d";
 
 ctx.beginPath();
-ctx.arc(e.x,e.y,13,0,Math.PI*2);
+ctx.arc(e.x,e.y,12,0,Math.PI*2);
 ctx.fill();
 
 ctx.fillStyle="white";
@@ -269,6 +302,10 @@ ctx.beginPath();
 ctx.arc(c.x,c.y,c.size,0,Math.PI*2);
 ctx.fill();
 
+ctx.strokeStyle="#fff4b3";
+ctx.lineWidth=2;
+ctx.stroke();
+
 }
 
 function draw(){
@@ -285,24 +322,7 @@ drawPlayer();
 document.getElementById("scoreUI").innerHTML=
 "Score: "+score+" | High Score: "+highScore;
 
-if(gameOver){
-
-ctx.fillStyle="black";
-ctx.font="50px sans-serif";
-ctx.fillText("GAME OVER",w/2-170,h/2);
-
-ctx.font="25px sans-serif";
-ctx.fillText("Press R to Restart",w/2-110,h/2+40);
-
 }
-
-}
-
-document.addEventListener("keydown",e=>{
-if(e.key==="r" && gameOver){
-restartGame();
-}
-});
 
 function loop(){
 
