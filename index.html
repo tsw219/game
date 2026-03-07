@@ -1,351 +1,469 @@
+```html
 <!DOCTYPE html>
-
-<html lang="ja">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Coin Survival</title>
 
 <style>
 
 body{
 margin:0;
-background:#111;
-color:white;
-font-family:sans-serif;
 overflow:hidden;
+font-family:Arial;
+background:linear-gradient(#6fd36f,#3ea63e);
+}
+
+canvas{
+display:block;
+}
+
+#scoreUI{
+position:absolute;
+top:20px;
+left:20px;
+color:white;
+font-size:22px;
+background:rgba(0,0,0,0.4);
+padding:12px 20px;
+border-radius:12px;
+backdrop-filter:blur(6px);
+box-shadow:0 0 10px rgba(0,0,0,0.4);
 }
 
 #menu{
 position:absolute;
-width:100%;
-top:120px;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:35px;
+border-radius:16px;
 text-align:center;
+box-shadow:0 0 30px rgba(0,0,0,0.4);
+max-width:420px;
 }
 
-canvas{
-background:black;
-display:block;
-}
-
-#ui{
+#gameOverUI{
+display:none;
 position:absolute;
-top:10px;
-left:10px;
-font-size:18px;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+text-align:center;
+background:white;
+padding:35px;
+border-radius:16px;
+box-shadow:0 0 30px rgba(0,0,0,0.4);
+}
+
+input{
+padding:8px;
+font-size:16px;
+margin-top:10px;
 }
 
 button{
-padding:10px 20px;
-font-size:16px;
+font-size:20px;
+padding:10px 28px;
+border:none;
+border-radius:10px;
+background:#ffcc00;
 cursor:pointer;
+margin-top:10px;
+}
+
+button:hover{
+background:#ffd84d;
+}
+
+#ranking{
+margin-top:10px;
+font-size:16px;
+text-align:left;
 }
 
 </style>
-
 </head>
 
 <body>
 
+<canvas id="game"></canvas>
+
+<div id="scoreUI"></div>
+
 <div id="menu">
 
-<h1>Coin Survival</h1>
+<h2>Coin Survival</h2>
 
-<p>
-矢印キーで移動<br>
-コインを集めてスコアアップ<br>
-敵に当たるとゲームオーバー<br>
-Shiftで一瞬ダッシュ
+<p style="text-align:left">
+
+矢印キー：移動<br>
+Shift：ダッシュ（10秒クールダウン）<br><br>
+
+🟡 金コイン = 1点<br>
+⚪ 銀コイン = 3点<br><br>
+
+10コインごとに敵が速くなる
+
 </p>
 
-<input id="nameInput" placeholder="プレイヤー名（空欄でもOK）">
+<input id="nameInput" placeholder="プレーヤー名">
 
-<br><br>
+<br>
 
 <button onclick="startGame()">START</button>
 
-<h3>Top5</h3>
-<div id="top5"></div>
+<div id="ranking"></div>
 
 </div>
 
-<div id="ui" style="display:none">
-Score: <span id="score">0</span><br>
-High Score: <span id="high">0</span>
-</div>
+<div id="gameOverUI">
 
-<canvas id="game"></canvas>
+<h1>GAME OVER</h1>
+
+<button onclick="restartGame()">Restart</button>
+
+</div>
 
 <script>
 
-const canvas=document.getElementById("game")
-const ctx=canvas.getContext("2d")
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-function resize(){
-canvas.width=window.innerWidth
-canvas.height=window.innerHeight
+let w=window.innerWidth;
+let h=window.innerHeight;
+
+canvas.width=w;
+canvas.height=h;
+
+window.onresize=()=>{
+w=window.innerWidth;
+h=window.innerHeight;
+canvas.width=w;
+canvas.height=h;
 }
-resize()
-window.addEventListener("resize",resize)
 
-let player
-let enemies=[]
-let coins=[]
-let score=0
-let running=false
-let dashCooldown=0
-let playerName=""
+let player;
+let enemies=[];
+let coins=[];
 
-const keys={}
+let score=0;
+let highScore=localStorage.getItem("coinHighScore")||0;
 
-document.addEventListener("keydown",e=>{
-keys[e.key]=true
+let playerName="Player1";
 
-if(e.key==="Shift" && dashCooldown<=0){
-player.speed=8
-setTimeout(()=>player.speed=4,200)
-dashCooldown=10
-}
-})
+let enemySpeed=1.45;
 
-document.addEventListener("keyup",e=>{
-keys[e.key]=false
-})
+let dashCooldown=0;
+let dashActive=false;
+let dashTimer=0;
+
+let gameOver=false;
+
+let keys={};
+
+const topSafe=100;
+const margin=30;
+
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
 
 function startGame(){
 
-let name=document.getElementById("nameInput").value.trim()
+let name=document.getElementById("nameInput").value;
 
-if(name===""){
-playerName="Player"+Math.floor(Math.random()*1000)
-}else{
-playerName=name
-}
+playerName=name?name:"Player1";
+
+document.getElementById("menu").style.display="none";
 
 player={
-x:200,
-y:200,
-size:22,
-speed:4
-}
+x:w/2,
+y:h/2,
+size:18
+};
 
-enemies=[]
-coins=[]
-score=0
-dashCooldown=0
+enemies=[];
+coins=[];
 
-spawnEnemies(3)
-spawnCoin()
+score=0;
+enemySpeed=1.45;
 
-running=true
-
-menu.style.display="none"
-ui.style.display="block"
-
-updateHigh()
-
-loop()
+spawnCoin();
 
 }
 
-function spawnEnemies(n){
+function restartGame(){
 
-for(let i=0;i<n;i++){
+document.getElementById("gameOverUI").style.display="none";
 
-enemies.push({
-x:Math.random()*canvas.width,
-y:Math.random()*canvas.height,
-size:22,
-speed:2
-})
+player.x=w/2;
+player.y=h/2;
+
+enemies=[];
+coins=[];
+
+score=0;
+enemySpeed=1.45;
+
+gameOver=false;
+
+spawnCoin();
 
 }
+
+function spawnEnemy(){
+
+let fast=Math.random()<0.25;
+
+let speed=fast?enemySpeed+1:enemySpeed;
+
+let side=Math.floor(Math.random()*4);
+
+let enemy={x:0,y:0,speed:speed,fast:fast};
+
+if(side===0){enemy.x=margin;enemy.y=Math.random()*(h-topSafe)+topSafe;}
+if(side===1){enemy.x=w-margin;enemy.y=Math.random()*(h-topSafe)+topSafe;}
+if(side===2){enemy.x=Math.random()*w;enemy.y=topSafe;}
+if(side===3){enemy.x=Math.random()*w;enemy.y=h-margin;}
+
+for(let e of enemies){
+
+let dx=e.x-enemy.x;
+let dy=e.y-enemy.y;
+
+if(Math.sqrt(dx*dx+dy*dy)<30){
+return;
+}
+
+}
+
+enemies.push(enemy);
 
 }
 
 function spawnCoin(){
 
+let rare=Math.random()<0.25;
+
 coins.push({
-x:Math.random()*canvas.width,
-y:Math.random()*canvas.height,
-size:10
-})
+x:Math.random()*(w-margin*2)+margin,
+y:Math.random()*(h-topSafe-margin)+topSafe,
+value:rare?3:1,
+size:rare?13:16
+});
 
 }
 
-function loop(){
-
-if(!running)return
-
-update()
-draw()
-
-requestAnimationFrame(loop)
-
-}
+let enemyTimer=0;
 
 function update(){
 
-if(keys["ArrowUp"]) player.y-=player.speed
-if(keys["ArrowDown"]) player.y+=player.speed
-if(keys["ArrowLeft"]) player.x-=player.speed
-if(keys["ArrowRight"]) player.x+=player.speed
+if(!player || gameOver) return;
 
-for(const e of enemies){
+if(keys["Shift"] && dashCooldown<=0 && !dashActive){
+dashActive=true;
+dashTimer=60;
+dashCooldown=600;
+}
 
-let dx=player.x-e.x
-let dy=player.y-e.y
-let d=Math.hypot(dx,dy)
+let speed=dashActive?8:4;
 
-e.x+=dx/d*e.speed
-e.y+=dy/d*e.speed
+if(keys["ArrowUp"])player.y-=speed;
+if(keys["ArrowDown"])player.y+=speed;
+if(keys["ArrowLeft"])player.x-=speed;
+if(keys["ArrowRight"])player.x+=speed;
 
-if(d<player.size+e.size){
-gameOver()
+player.x=Math.max(player.size,Math.min(w-player.size,player.x));
+player.y=Math.max(player.size,Math.min(h-player.size,player.y));
+
+if(dashActive){
+
+dashTimer--;
+
+if(dashTimer<=0){
+dashActive=false;
+}
+
+}
+
+if(dashCooldown>0) dashCooldown--;
+
+enemyTimer++;
+
+if(enemyTimer>65){
+
+spawnEnemy();
+
+enemyTimer=0;
+
+}
+
+for(let enemy of enemies){
+
+let dx=player.x-enemy.x;
+let dy=player.y-enemy.y;
+
+let dist=Math.sqrt(dx*dx+dy*dy);
+
+enemy.x+=dx/dist*enemy.speed;
+enemy.y+=dy/dist*enemy.speed;
+
+if(dist<22){
+
+gameOver=true;
+
+document.getElementById("gameOverUI").style.display="block";
+
+saveScore();
+
 }
 
 }
 
 for(let i=coins.length-1;i>=0;i--){
 
-let c=coins[i]
+let c=coins[i];
 
-let d=Math.hypot(player.x-c.x,player.y-c.y)
+let dx=player.x-c.x;
+let dy=player.y-c.y;
 
-if(d<player.size+c.size){
+let dist=Math.sqrt(dx*dx+dy*dy);
 
-coins.splice(i,1)
+if(dist<22){
 
-score++
+score+=c.value;
 
-spawnCoin()
+coins.splice(i,1);
 
-if(score%5===0){
-spawnEnemies(1)
+spawnCoin();
+
+if(score%10===0){
+
+enemySpeed+=0.35;
+
+for(let e of enemies){
+e.speed+=0.35;
 }
 
 }
 
 }
 
-if(dashCooldown>0){
-dashCooldown-=1/60
 }
 
-scoreEl.textContent=score
+}
+
+function saveScore(){
+
+let ranking=JSON.parse(localStorage.getItem("coinRanking")||"[]");
+
+ranking.push({name:playerName,score:score});
+
+ranking.sort((a,b)=>b.score-a.score);
+
+ranking=ranking.slice(0,5);
+
+localStorage.setItem("coinRanking",JSON.stringify(ranking));
+
+showRanking();
+
+}
+
+function showRanking(){
+
+let ranking=JSON.parse(localStorage.getItem("coinRanking")||"[]");
+
+let html="<h3>🏆 Ranking</h3>";
+
+ranking.forEach((r,i)=>{
+html+=`${i+1}. ${r.name} - ${r.score}<br>`;
+});
+
+document.getElementById("ranking").innerHTML=html;
+
+}
+
+function drawPlayer(){
+
+ctx.fillStyle="#2f7df6";
+
+ctx.beginPath();
+ctx.arc(player.x,player.y,18,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="white";
+
+ctx.beginPath();
+ctx.arc(player.x-6,player.y-4,4,0,Math.PI*2);
+ctx.arc(player.x+6,player.y-4,4,0,Math.PI*2);
+ctx.fill();
 
 }
 
 function draw(){
 
-ctx.clearRect(0,0,canvas.width,canvas.height)
+ctx.clearRect(0,0,w,h);
 
-/* coins */
+if(!player) return;
 
-ctx.fillStyle="gold"
+for(let c of coins){
 
-for(const c of coins){
+ctx.fillStyle=c.value==3?"silver":"gold";
 
-ctx.beginPath()
-ctx.arc(c.x,c.y,c.size,0,Math.PI*2)
-ctx.fill()
-
-}
-
-/* enemies */
-
-for(const e of enemies){
-
-ctx.fillStyle="red"
-
-ctx.beginPath()
-ctx.arc(e.x,e.y,e.size,0,Math.PI*2)
-ctx.fill()
-
-ctx.fillStyle="black"
-
-ctx.beginPath()
-ctx.arc(e.x-6,e.y-4,3,0,Math.PI*2)
-ctx.arc(e.x+6,e.y-4,3,0,Math.PI*2)
-ctx.fill()
+ctx.beginPath();
+ctx.arc(c.x,c.y,c.size,0,Math.PI*2);
+ctx.fill();
 
 }
 
-/* player */
+for(let e of enemies){
 
-ctx.fillStyle="cyan"
+ctx.fillStyle=e.fast?"purple":"red";
 
-ctx.beginPath()
-ctx.arc(player.x,player.y,player.size,0,Math.PI*2)
-ctx.fill()
+ctx.beginPath();
+ctx.arc(e.x,e.y,12,0,Math.PI*2);
+ctx.fill();
 
-ctx.fillStyle="black"
+ctx.fillStyle="white";
 
-ctx.beginPath()
-ctx.arc(player.x-6,player.y-4,3,0,Math.PI*2)
-ctx.arc(player.x+6,player.y-4,3,0,Math.PI*2)
-ctx.fill()
+ctx.beginPath();
+ctx.arc(e.x-4,e.y-3,3,0,Math.PI*2);
+ctx.arc(e.x+4,e.y-3,3,0,Math.PI*2);
+ctx.fill();
 
-}
+ctx.fillStyle="black";
 
-function gameOver(){
-
-running=false
-
-saveScore()
-
-alert("Game Over\nScore: "+score)
-
-location.reload()
+ctx.beginPath();
+ctx.arc(e.x-4,e.y-3,1.5,0,Math.PI*2);
+ctx.arc(e.x+4,e.y-3,1.5,0,Math.PI*2);
+ctx.fill();
 
 }
 
-function loadScores(){
-return JSON.parse(localStorage.getItem("scores")||"{}")
-}
+drawPlayer();
 
-function saveScore(){
-
-let scores=loadScores()
-
-if(!scores[playerName] || score>scores[playerName]){
-scores[playerName]=score
-}
-
-localStorage.setItem("scores",JSON.stringify(scores))
+document.getElementById("scoreUI").innerHTML=
+"⭐ Score: "+score+
+"<br>🏆 High Score: "+highScore+
+"<br>⚡ Dash: "+(dashCooldown>0?Math.ceil(dashCooldown/60)+"s":"Ready");
 
 }
 
-function updateHigh(){
+function loop(){
 
-let scores=loadScores()
+update();
+draw();
 
-let high=0
-
-for(let p in scores){
-if(scores[p]>high) high=scores[p]
-}
-
-document.getElementById("high").textContent=high
+requestAnimationFrame(loop);
 
 }
 
-function showTop5(){
+showRanking();
 
-let scores=loadScores()
-
-let arr=Object.entries(scores)
-.sort((a,b)=>b[1]-a[1])
-.slice(0,5)
-
-top5.innerHTML=arr.map((s,i)=>`${i+1}. ${s[0]} : ${s[1]}`).join("<br>")
-
-}
-
-const scoreEl=document.getElementById("score")
-
-showTop5()
+loop();
 
 </script>
 
 </body>
 </html>
+```
