@@ -2,180 +2,210 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Time Clone Puzzle</title>
+<title>Survival Coin Game</title>
 
 <style>
+
 body{
+margin:0;
 background:#111;
 color:white;
-text-align:center;
 font-family:sans-serif;
+text-align:center;
 }
 
 canvas{
 background:#222;
 margin-top:20px;
 }
-</style>
 
+</style>
 </head>
+
 <body>
 
-<h2>TIME CLONE PUZZLE</h2>
+<h2>Coin Survival</h2>
+<p>矢印キーで移動 / コインを集める / 敵に当たると終了</p>
 
-<p>
-矢印キー：移動<br>
-Rキー：時間を戻して分身を作る<br>
-スイッチを押してドアを開けてゴールへ
-</p>
-
-<canvas id="game" width="500" height="500"></canvas>
+<canvas id="game" width="600" height="400"></canvas>
 
 <script>
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const size = 50;
+let player = {
+x:300,
+y:200,
+size:20,
+speed:4
+};
 
-let map=[
-[1,1,1,1,1,1,1,1,1,1],
-[1,0,0,0,0,0,0,0,3,1],
-[1,0,1,1,0,1,1,0,0,1],
-[1,0,0,0,0,0,1,0,0,1],
-[1,0,2,1,1,0,1,0,0,1],
-[1,0,0,0,1,0,0,0,0,1],
-[1,1,1,0,1,1,1,1,0,1],
-[1,0,0,0,0,0,0,1,0,1],
-[1,4,1,1,1,1,0,0,0,1],
-[1,1,1,1,1,1,1,1,1,1]
-];
+let keys={};
 
-let player={x:1,y:1};
+let enemies=[];
+let coins=[];
 
-let history=[];
-let clones=[];
+let score=0;
+let gameOver=false;
 
 document.addEventListener("keydown",e=>{
-
-let nx=player.x;
-let ny=player.y;
-
-if(e.key=="ArrowUp")ny--;
-if(e.key=="ArrowDown")ny++;
-if(e.key=="ArrowLeft")nx--;
-if(e.key=="ArrowRight")nx++;
-
-if(map[ny][nx]!=1 && map[ny][nx]!=4){
-
-history.push({x:player.x,y:player.y});
-
-player.x=nx;
-player.y=ny;
-
-}
-
-if(e.key=="r"||e.key=="R"){
-
-clones.push([...history]);
-
-history=[];
-
-player.x=1;
-player.y=1;
-
-}
-
+keys[e.key]=true;
 });
 
-let frame=0;
+document.addEventListener("keyup",e=>{
+keys[e.key]=false;
+});
 
-function drawTile(x,y,type){
+function spawnEnemy(){
 
-if(type==1){
+let side=Math.floor(Math.random()*4);
 
-ctx.fillStyle="#666";
-ctx.fillRect(x,y,size,size);
+let enemy={size:20,speed:1+Math.random()*1.5};
+
+if(side===0){
+enemy.x=0;
+enemy.y=Math.random()*400;
+}
+
+if(side===1){
+enemy.x=600;
+enemy.y=Math.random()*400;
+}
+
+if(side===2){
+enemy.x=Math.random()*600;
+enemy.y=0;
+}
+
+if(side===3){
+enemy.x=Math.random()*600;
+enemy.y=400;
+}
+
+enemies.push(enemy);
 
 }
 
-if(type==2){
+function spawnCoin(){
+
+coins.push({
+x:Math.random()*560+20,
+y:Math.random()*360+20,
+size:10
+});
+
+}
+
+spawnCoin();
+
+let enemyTimer=0;
+
+function update(){
+
+if(gameOver)return;
+
+if(keys["ArrowUp"])player.y-=player.speed;
+if(keys["ArrowDown"])player.y+=player.speed;
+if(keys["ArrowLeft"])player.x-=player.speed;
+if(keys["ArrowRight"])player.x+=player.speed;
+
+player.x=Math.max(0,Math.min(600-player.size,player.x));
+player.y=Math.max(0,Math.min(400-player.size,player.y));
+
+enemyTimer++;
+
+if(enemyTimer>60){
+spawnEnemy();
+enemyTimer=0;
+}
+
+for(let enemy of enemies){
+
+let dx=player.x-enemy.x;
+let dy=player.y-enemy.y;
+
+let dist=Math.sqrt(dx*dx+dy*dy);
+
+enemy.x+=dx/dist*enemy.speed;
+enemy.y+=dy/dist*enemy.speed;
+
+if(dist<20){
+gameOver=true;
+}
+
+}
+
+for(let i=coins.length-1;i>=0;i--){
+
+let coin=coins[i];
+
+let dx=player.x-coin.x;
+let dy=player.y-coin.y;
+
+if(Math.sqrt(dx*dx+dy*dy)<20){
+
+score++;
+coins.splice(i,1);
+spawnCoin();
+
+}
+
+}
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,600,400);
 
 ctx.fillStyle="yellow";
-ctx.fillRect(x+10,y+10,30,30);
+
+for(let coin of coins){
+
+ctx.beginPath();
+ctx.arc(coin.x,coin.y,coin.size,0,Math.PI*2);
+ctx.fill();
 
 }
-
-if(type==3){
-
-ctx.fillStyle="lime";
-ctx.fillRect(x+10,y+10,30,30);
-
-}
-
-if(type==4){
 
 ctx.fillStyle="red";
-ctx.fillRect(x+10,y+10,30,30);
+
+for(let enemy of enemies){
+
+ctx.fillRect(enemy.x,enemy.y,enemy.size,enemy.size);
 
 }
-
-}
-
-function game(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
-
-for(let y=0;y<10;y++){
-for(let x=0;x<10;x++){
-
-drawTile(x*size,y*size,map[y][x]);
-
-}
-}
-
-for(let c of clones){
-
-let step=c[Math.min(frame,c.length-1)];
-
-if(step){
 
 ctx.fillStyle="cyan";
-ctx.fillRect(step.x*size+10,step.y*size+10,30,30);
+ctx.fillRect(player.x,player.y,player.size,player.size);
 
-if(map[step.y][step.x]==2){
+ctx.fillStyle="white";
+ctx.font="20px sans-serif";
+ctx.fillText("Score: "+score,10,25);
 
-map[8][1]=0;
+if(gameOver){
 
-}
+ctx.font="40px sans-serif";
+ctx.fillText("GAME OVER",200,200);
 
-}
-
-}
-
-ctx.fillStyle="blue";
-ctx.fillRect(player.x*size+10,player.y*size+10,30,30);
-
-if(map[player.y][player.x]==2){
-
-map[8][1]=0;
+ctx.font="20px sans-serif";
+ctx.fillText("Refresh to restart",230,240);
 
 }
 
-if(map[player.y][player.x]==3){
+}
 
-alert("CLEAR!");
-location.reload();
+function gameLoop(){
+
+update();
+draw();
+
+requestAnimationFrame(gameLoop);
 
 }
 
-frame++;
-
-requestAnimationFrame(game);
-
-}
-
-game();
+gameLoop();
 
 </script>
 
