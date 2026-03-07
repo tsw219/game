@@ -11,7 +11,7 @@ margin:0;
 padding:0;
 overflow:hidden;
 font-family:sans-serif;
-background:linear-gradient(#6ec6ff,#dff7ff);
+background:#87ceeb;
 }
 
 #ui{
@@ -21,15 +21,13 @@ width:100%;
 text-align:center;
 font-weight:bold;
 font-size:22px;
-text-shadow:2px 2px 4px white;
 }
 
 #scoreBox{
-background:rgba(255,255,255,0.85);
+background:white;
 display:inline-block;
-padding:10px 30px;
-border-radius:20px;
-box-shadow:0 0 15px rgba(0,0,0,0.2);
+padding:8px 25px;
+border-radius:15px;
 }
 
 #menu{
@@ -38,29 +36,18 @@ top:50%;
 left:50%;
 transform:translate(-50%,-50%);
 background:white;
-padding:40px;
-border-radius:20px;
+padding:30px;
+border-radius:15px;
 text-align:center;
-box-shadow:0 0 25px rgba(0,0,0,0.3);
-max-width:500px;
 }
 
 button{
-padding:15px 40px;
-font-size:20px;
+padding:12px 30px;
+font-size:18px;
 border:none;
-border-radius:15px;
-background:#ffcc00;
+border-radius:10px;
+background:#ffd400;
 cursor:pointer;
-margin-top:20px;
-}
-
-button:hover{
-background:#ffdd33;
-}
-
-canvas{
-display:block;
 }
 </style>
 
@@ -70,25 +57,30 @@ display:block;
 
 <div id="ui">
 <div id="scoreBox">
-コイン: <span id="score">0</span>　
+コイン: <span id="score">0</span>
+　
 ハイスコア: <span id="high">0</span>
 </div>
 </div>
 
 <div id="menu">
+
 <h2>コインサバイバー</h2>
 
 <p>
 😀 あなた<br>
-😈 敵（当たるとゲームオーバー）<br>
+😈 敵（当たるとゲームオーバー）
+</p>
+
+<p>
 🟡 コイン = 1点<br>
 🟣 レアコイン = 3点<br>
 🔵 レアコイン = 5点
 </p>
 
 <p>
-コインを集めてスコアを伸ばそう！<br>
-<strong>10コインごとに敵が1体増える！</strong>
+コインを集めよう<br>
+10コインごとに敵が増える
 </p>
 
 <button onclick="startGame()">スタート</button>
@@ -119,11 +111,9 @@ let enemies=[]
 
 let score=0
 let high=localStorage.getItem("coinHigh")||0
-
 document.getElementById("high").innerText=high
 
 let game=false
-let level=1
 
 function startGame(){
 
@@ -132,7 +122,7 @@ document.getElementById("menu").style.display="none"
 player={
 x:W/2,
 y:H/2,
-size:22,
+size:20,
 speed:4
 }
 
@@ -140,7 +130,6 @@ coins=[]
 enemies=[]
 
 score=0
-level=1
 
 spawnCoin()
 
@@ -170,13 +159,13 @@ color="purple"
 }
 
 let x=Math.random()*(W-60)+30
-let y=Math.random()*(H-140)+100
+let y=Math.random()*(H-120)+90
 
 coins.push({
 x,y,
 value,
 color,
-size:26
+size:25
 })
 
 }
@@ -188,7 +177,7 @@ let y=Math.random()*H
 
 enemies.push({
 x,y,
-size:22,
+size:20,
 speed:1.6
 })
 
@@ -233,7 +222,6 @@ let d=Math.hypot(player.x-c.x,player.y-c.y)
 if(d<player.size+c.size/2){
 
 score+=c.value
-
 document.getElementById("score").innerText=score
 
 coins.splice(i,1)
@@ -241,10 +229,7 @@ coins.splice(i,1)
 spawnCoin()
 
 if(score%10===0){
-
-level++
 spawnEnemy()
-
 }
 
 }
@@ -269,25 +254,29 @@ ctx.fill()
 for(let e of enemies){
 
 ctx.fillStyle="red"
+
 ctx.beginPath()
 ctx.arc(e.x,e.y,e.size,0,Math.PI*2)
 ctx.fill()
 
 ctx.fillStyle="white"
+
 ctx.beginPath()
-ctx.arc(e.x-6,e.y-4,4,0,Math.PI*2)
-ctx.arc(e.x+6,e.y-4,4,0,Math.PI*2)
+ctx.arc(e.x-5,e.y-4,4,0,Math.PI*2)
+ctx.arc(e.x+5,e.y-4,4,0,Math.PI*2)
 ctx.fill()
 
 ctx.fillStyle="black"
+
 ctx.beginPath()
-ctx.arc(e.x-6,e.y-4,2,0,Math.PI*2)
-ctx.arc(e.x+6,e.y-4,2,0,Math.PI*2)
+ctx.arc(e.x-5,e.y-4,2,0,Math.PI*2)
+ctx.arc(e.x+5,e.y-4,2,0,Math.PI*2)
 ctx.fill()
 
 }
 
 ctx.fillStyle="orange"
+
 ctx.beginPath()
 ctx.arc(player.x,player.y,player.size,0,Math.PI*2)
 ctx.fill()
