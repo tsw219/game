@@ -1,29 +1,30 @@
 <!DOCTYPE html>
 
-<html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Coin Game</title>
+<title>Coin Survival</title>
 
 <style>
 
 body{
 margin:0;
+background:#111;
+color:white;
 font-family:sans-serif;
-text-align:center;
-background:#ffffff;
+overflow:hidden;
 }
 
 #menu{
 position:absolute;
 width:100%;
 top:120px;
+text-align:center;
 }
 
 canvas{
-background:#e9f5ff;
+background:black;
 display:block;
-margin:auto;
 }
 
 #ui{
@@ -36,6 +37,7 @@ font-size:18px;
 button{
 padding:10px 20px;
 font-size:16px;
+cursor:pointer;
 }
 
 </style>
@@ -52,7 +54,7 @@ font-size:16px;
 矢印キーで移動<br>
 コインを集めてスコアアップ<br>
 敵に当たるとゲームオーバー<br>
-Shiftでダッシュ
+Shiftで一瞬ダッシュ
 </p>
 
 <input id="nameInput" placeholder="プレイヤー名（空欄でもOK）">
@@ -67,7 +69,8 @@ Shiftでダッシュ
 </div>
 
 <div id="ui" style="display:none">
-Score: <span id="score">0</span>
+Score: <span id="score">0</span><br>
+High Score: <span id="high">0</span>
 </div>
 
 <canvas id="game"></canvas>
@@ -77,20 +80,31 @@ Score: <span id="score">0</span>
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
+function resize(){
 canvas.width=window.innerWidth
 canvas.height=window.innerHeight
+}
+resize()
+window.addEventListener("resize",resize)
 
 let player
 let enemies=[]
 let coins=[]
 let score=0
 let running=false
+let dashCooldown=0
 let playerName=""
 
 const keys={}
 
 document.addEventListener("keydown",e=>{
 keys[e.key]=true
+
+if(e.key==="Shift" && dashCooldown<=0){
+player.speed=8
+setTimeout(()=>player.speed=4,200)
+dashCooldown=10
+}
 })
 
 document.addEventListener("keyup",e=>{
@@ -99,7 +113,7 @@ keys[e.key]=false
 
 function startGame(){
 
-const name=document.getElementById("nameInput").value.trim()
+let name=document.getElementById("nameInput").value.trim()
 
 if(name===""){
 playerName="Player"+Math.floor(Math.random()*1000)
@@ -110,15 +124,16 @@ playerName=name
 player={
 x:200,
 y:200,
-size:20,
+size:22,
 speed:4
 }
 
 enemies=[]
 coins=[]
 score=0
+dashCooldown=0
 
-spawnEnemy()
+spawnEnemies(3)
 spawnCoin()
 
 running=true
@@ -126,18 +141,24 @@ running=true
 menu.style.display="none"
 ui.style.display="block"
 
+updateHigh()
+
 loop()
 
 }
 
-function spawnEnemy(){
+function spawnEnemies(n){
+
+for(let i=0;i<n;i++){
 
 enemies.push({
 x:Math.random()*canvas.width,
 y:Math.random()*canvas.height,
-size:20,
-speed:1.5
+size:22,
+speed:2
 })
+
+}
 
 }
 
@@ -187,6 +208,7 @@ gameOver()
 for(let i=coins.length-1;i>=0;i--){
 
 let c=coins[i]
+
 let d=Math.hypot(player.x-c.x,player.y-c.y)
 
 if(d<player.size+c.size){
@@ -198,11 +220,15 @@ score++
 spawnCoin()
 
 if(score%5===0){
-spawnEnemy()
+spawnEnemies(1)
 }
 
 }
 
+}
+
+if(dashCooldown>0){
+dashCooldown-=1/60
 }
 
 scoreEl.textContent=score
@@ -213,18 +239,24 @@ function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-for(const c of coins){
+/* coins */
 
 ctx.fillStyle="gold"
+
+for(const c of coins){
+
 ctx.beginPath()
 ctx.arc(c.x,c.y,c.size,0,Math.PI*2)
 ctx.fill()
 
 }
 
+/* enemies */
+
 for(const e of enemies){
 
 ctx.fillStyle="red"
+
 ctx.beginPath()
 ctx.arc(e.x,e.y,e.size,0,Math.PI*2)
 ctx.fill()
@@ -232,13 +264,16 @@ ctx.fill()
 ctx.fillStyle="black"
 
 ctx.beginPath()
-ctx.arc(e.x-5,e.y-5,3,0,Math.PI*2)
-ctx.arc(e.x+5,e.y-5,3,0,Math.PI*2)
+ctx.arc(e.x-6,e.y-4,3,0,Math.PI*2)
+ctx.arc(e.x+6,e.y-4,3,0,Math.PI*2)
 ctx.fill()
 
 }
 
+/* player */
+
 ctx.fillStyle="cyan"
+
 ctx.beginPath()
 ctx.arc(player.x,player.y,player.size,0,Math.PI*2)
 ctx.fill()
@@ -246,8 +281,8 @@ ctx.fill()
 ctx.fillStyle="black"
 
 ctx.beginPath()
-ctx.arc(player.x-5,player.y-5,3,0,Math.PI*2)
-ctx.arc(player.x+5,player.y-5,3,0,Math.PI*2)
+ctx.arc(player.x-6,player.y-4,3,0,Math.PI*2)
+ctx.arc(player.x+6,player.y-4,3,0,Math.PI*2)
 ctx.fill()
 
 }
@@ -258,7 +293,7 @@ running=false
 
 saveScore()
 
-alert("Game Over\nScore:"+score)
+alert("Game Over\nScore: "+score)
 
 location.reload()
 
@@ -277,6 +312,20 @@ scores[playerName]=score
 }
 
 localStorage.setItem("scores",JSON.stringify(scores))
+
+}
+
+function updateHigh(){
+
+let scores=loadScores()
+
+let high=0
+
+for(let p in scores){
+if(scores[p]>high) high=scores[p]
+}
+
+document.getElementById("high").textContent=high
 
 }
 
