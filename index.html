@@ -1,167 +1,149 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Mini Kart Race</title>
-
+<title>Time Clone Puzzle</title>
 <style>
 body{
+margin:0;
 background:#111;
 color:white;
-text-align:center;
 font-family:sans-serif;
+text-align:center;
 }
-
 canvas{
-background:#1f1f1f;
-border:3px solid white;
-display:block;
-margin:auto;
+background:#222;
+margin-top:20px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🏎 Mini Kart Race</h1>
-<p>↑前進 ↓ブレーキ ←→ハンドル　黄色を取ると加速</p>
+<h2>Time Clone Puzzle</h2>
+<p>矢印キー: 移動 / R: 時間を巻き戻して分身</p>
 
-<canvas id="game" width="800" height="500"></canvas>
+<canvas id="game" width="500" height="500"></canvas>
 
 <script>
 
-const canvas=document.getElementById("game")
-const ctx=canvas.getContext("2d")
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-let keys={}
-document.addEventListener("keydown",e=>keys[e.key]=true)
-document.addEventListener("keyup",e=>keys[e.key]=false)
+const size=50;
 
-let player={
-x:400,
-y:420,
-speed:0
+let level=[
+[1,1,1,1,1,1,1,1,1,1],
+[1,0,0,0,0,0,0,0,3,1],
+[1,0,1,1,0,1,1,0,0,1],
+[1,0,0,0,0,0,1,0,0,1],
+[1,0,2,1,1,0,1,0,0,1],
+[1,0,0,0,1,0,0,0,0,1],
+[1,1,1,0,1,1,1,1,0,1],
+[1,0,0,0,0,0,0,1,0,1],
+[1,4,1,1,1,1,0,0,0,1],
+[1,1,1,1,1,1,1,1,1,1]
+];
+
+let player={x:1,y:1};
+
+let history=[];
+let clones=[];
+
+document.addEventListener("keydown",e=>{
+
+let nx=player.x;
+let ny=player.y;
+
+if(e.key=="ArrowUp")ny--;
+if(e.key=="ArrowDown")ny++;
+if(e.key=="ArrowLeft")nx--;
+if(e.key=="ArrowRight")nx++;
+
+if(level[ny][nx]!=1){
+history.push({x:player.x,y:player.y});
+player.x=nx;
+player.y=ny;
 }
 
-let enemies=[
-{x:250,y:100},
-{x:550,y:200}
-]
-
-let boosts=[]
-for(let i=0;i<6;i++){
-boosts.push({
-x:Math.random()*500+150,
-y:Math.random()*400+50
-})
+if(e.key=="r"||e.key=="R"){
+clones.push([...history]);
+history=[];
 }
 
-function update(){
+});
 
-// プレイヤー
-if(keys["ArrowUp"]) player.speed+=0.2
-if(keys["ArrowDown"]) player.speed-=0.2
+function drawTile(x,y,type){
 
-player.speed*=0.95
-
-player.y-=player.speed
-
-if(keys["ArrowLeft"]) player.x-=4
-if(keys["ArrowRight"]) player.x+=4
-
-// 壁
-if(player.x<120) player.x=120
-if(player.x>680) player.x=680
-
-// 敵
-for(let e of enemies){
-
-e.y+=2
-
-if(e.y>550){
-e.y=-50
-e.x=Math.random()*500+150
+if(type==1){
+ctx.fillStyle="#555";
+ctx.fillRect(x,y,size,size);
 }
 
-let dx=player.x-e.x
-let dy=player.y-e.y
-
-if(Math.sqrt(dx*dx+dy*dy)<25){
-player.speed*=0.4
+if(type==2){
+ctx.fillStyle="yellow";
+ctx.fillRect(x+10,y+10,30,30);
 }
 
+if(type==3){
+ctx.fillStyle="lime";
+ctx.fillRect(x+10,y+10,30,30);
 }
 
-// ブースト
-for(let b of boosts){
-
-let dx=player.x-b.x
-let dy=player.y-b.y
-
-if(Math.sqrt(dx*dx+dy*dy)<20){
-
-player.speed+=4
-
-b.y=-50
-b.x=Math.random()*500+150
-}
-
-b.y+=2
-
-if(b.y>520){
-b.y=-50
+if(type==4){
+ctx.fillStyle="red";
+ctx.fillRect(x+10,y+10,30,30);
 }
 
 }
 
-}
+let frame=0;
 
 function draw(){
 
-ctx.clearRect(0,0,800,500)
+ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// 草
-ctx.fillStyle="green"
-ctx.fillRect(0,0,800,500)
-
-// 道
-ctx.fillStyle="#444"
-ctx.fillRect(120,0,560,500)
-
-// ブースト
-ctx.fillStyle="yellow"
-
-for(let b of boosts){
-ctx.beginPath()
-ctx.arc(b.x,b.y,10,0,Math.PI*2)
-ctx.fill()
+for(let y=0;y<10;y++){
+for(let x=0;x<10;x++){
+drawTile(x*size,y*size,level[y][x]);
+}
 }
 
-// 敵
-ctx.fillStyle="red"
+for(let c of clones){
 
-for(let e of enemies){
-ctx.fillRect(e.x-10,e.y-10,20,20)
+let step=c[Math.min(frame,c.length-1)];
+
+if(step){
+ctx.fillStyle="cyan";
+ctx.fillRect(step.x*size+10,step.y*size+10,30,30);
+
+if(level[step.y][step.x]==2){
+level[8][1]=0;
 }
-
-// プレイヤー
-ctx.fillStyle="cyan"
-ctx.fillRect(player.x-12,player.y-12,24,24)
 
 }
 
-function loop(){
-
-update()
-draw()
-
-requestAnimationFrame(loop)
-
 }
 
-loop()
+ctx.fillStyle="blue";
+ctx.fillRect(player.x*size+10,player.y*size+10,30,30);
+
+if(level[player.y][player.x]==2){
+level[8][1]=0;
+}
+
+if(level[player.y][player.x]==3){
+alert("CLEAR!");
+location.reload();
+}
+
+frame++;
+
+requestAnimationFrame(draw);
+}
+
+draw();
 
 </script>
-
 </body>
 </html>
