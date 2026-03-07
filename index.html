@@ -2,252 +2,165 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Rhythm Drive</title>
+<title>Mini Kart</title>
 
 <style>
 body{
-    background:#000;
-    color:white;
-    text-align:center;
-    font-family:sans-serif;
+background:#111;
+color:white;
+text-align:center;
+font-family:sans-serif;
 }
 
-h1{margin:10px;}
-
-#game{
-    background:#111;
-    display:block;
-    margin:auto;
-    border:3px solid white;
+canvas{
+background:#2b2b2b;
+border:3px solid white;
+display:block;
+margin:auto;
 }
 
-#panel{
-    margin:10px;
-    font-size:18px;
-}
-
-select,button{
-    font-size:16px;
-    padding:6px 10px;
-    margin:5px;
+h1{
+margin:10px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🎵 Rhythm Drive</h1>
+<h1>🏎️ Mini Kart</h1>
+<p>↑加速 ↓ブレーキ ←→ハンドル</p>
 
-<canvas id="game" width="420" height="600"></canvas>
-
-<div id="panel">
-Score: <span id="score">0</span>
-　
-Combo: <span id="combo">0</span>
-</div>
-
-<div>
-<select id="level">
-    <option value="easy">EASY</option>
-    <option value="normal">NORMAL</option>
-    <option value="hard">HARD</option>
-</select>
-
-<button id="start">START</button>
-</div>
+<canvas id="game" width="800" height="500"></canvas>
 
 <script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
 
-const scoreText=document.getElementById("score");
-const comboText=document.getElementById("combo");
-const startBtn=document.getElementById("start");
-const levelSel=document.getElementById("level");
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
 
-const lanes=[70,150,230,310];
-const keys=["d","f","j","k"];
+let keys={}
 
-let notes=[];
-let score=0;
-let combo=0;
-let playing=false;
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)
 
-// 音（ループ曲）
-const music=new Audio(
-"data:audio/wav;base64,UklGRmQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YUwAAAAA/////wAAAP///wAAAP///wAAAP///wAA"
-);
-
-// 難易度設定
-const settings={
-    easy:{speed:3,interval:90},
-    normal:{speed:4,interval:65},
-    hard:{speed:5.5,interval:45}
-};
-
-let speed=4;
-let interval=70;
-let frame=0;
-
-// ノーツ生成
-function makeNote(){
-    notes.push({
-        lane:Math.floor(Math.random()*4),
-        y:-20,
-        hit:false
-    });
+let player={
+x:400,
+y:350,
+speed:0,
+angle:0
 }
 
-// スタート
-function start(){
+let enemies=[
+{x:300,y:200,speed:2},
+{x:500,y:150,speed:2.3}
+]
 
-    const lv=levelSel.value;
+let boosts=[]
 
-    speed=settings[lv].speed;
-    interval=settings[lv].interval;
-
-    notes=[];
-    score=0;
-    combo=0;
-    frame=0;
-
-    playing=true;
-
-    music.currentTime=0;
-    music.loop=true;
-    music.play();
+for(let i=0;i<5;i++){
+boosts.push({
+x:Math.random()*700+50,
+y:Math.random()*400+50
+})
 }
 
-startBtn.onclick=start;
-
-// 入力
-document.addEventListener("keydown",e=>{
-
-    if(!playing) return;
-
-    const key=e.key.toLowerCase();
-    const lane=keys.indexOf(key);
-
-    if(lane===-1) return;
-
-    hit(lane);
-});
-
-// 判定
-function hit(lane){
-
-    for(let n of notes){
-
-        if(n.lane!==lane||n.hit) continue;
-
-        const d=Math.abs(n.y-520);
-
-        if(d<15){
-            score+=300;
-            combo++;
-            n.hit=true;
-            return;
-        }
-
-        if(d<35){
-            score+=100;
-            combo++;
-            n.hit=true;
-            return;
-        }
-    }
-
-    combo=0;
-}
-
-// 更新
 function update(){
 
-    if(!playing) return;
+if(keys["ArrowUp"]) player.speed+=0.1
+if(keys["ArrowDown"]) player.speed-=0.1
 
-    frame++;
+player.speed*=0.98
 
-    // ノーツ生成
-    if(frame%interval===0){
-        makeNote();
-    }
+if(keys["ArrowLeft"]) player.angle-=0.05
+if(keys["ArrowRight"]) player.angle+=0.05
 
-    // 移動
-    for(let n of notes){
-        n.y+=speed;
-    }
+player.x+=Math.cos(player.angle)*player.speed
+player.y+=Math.sin(player.angle)*player.speed
 
-    // Miss
-    for(let n of notes){
-        if(n.y>600&&!n.hit){
-            n.hit=true;
-            combo=0;
-        }
-    }
+// 敵
+for(let e of enemies){
 
-    notes=notes.filter(n=>!n.hit);
+let dx=player.x-e.x
+let dy=player.y-e.y
+let dist=Math.sqrt(dx*dx+dy*dy)
 
-    scoreText.textContent=score;
-    comboText.textContent=combo;
+if(dist<30){
+player.speed*=0.5
 }
 
-// 描画
+e.y+=e.speed
+
+if(e.y>500) e.y=-50
+}
+
+// ブースト
+for(let b of boosts){
+
+let dx=player.x-b.x
+let dy=player.y-b.y
+
+if(Math.sqrt(dx*dx+dy*dy)<25){
+player.speed+=3
+
+b.x=Math.random()*700+50
+b.y=Math.random()*400+50
+}
+
+}
+
+}
+
 function draw(){
 
-    ctx.clearRect(0,0,420,600);
+ctx.clearRect(0,0,800,500)
 
-    // レーン
-    for(let x of lanes){
-        ctx.fillStyle="#222";
-        ctx.fillRect(x-30,0,60,600);
-    }
+// 道
+ctx.fillStyle="#444"
+ctx.fillRect(100,0,600,500)
 
-    // 判定線
-    ctx.strokeStyle="yellow";
-    ctx.lineWidth=3;
+// ブースト
+ctx.fillStyle="yellow"
 
-    ctx.beginPath();
-    ctx.moveTo(0,520);
-    ctx.lineTo(420,520);
-    ctx.stroke();
+for(let b of boosts){
 
-    // ノーツ
-    for(let n of notes){
+ctx.beginPath()
+ctx.arc(b.x,b.y,10,0,Math.PI*2)
+ctx.fill()
 
-        ctx.fillStyle="cyan";
-
-        ctx.beginPath();
-        ctx.arc(
-            lanes[n.lane],
-            n.y,
-            14,
-            0,
-            Math.PI*2
-        );
-        ctx.fill();
-    }
-
-    // キー表示
-    ctx.fillStyle="white";
-    ctx.font="18px sans-serif";
-
-    keys.forEach((k,i)=>{
-        ctx.fillText(
-            k.toUpperCase(),
-            lanes[i]-6,
-            565
-        );
-    });
 }
 
-// ループ
+// 敵
+ctx.fillStyle="red"
+
+for(let e of enemies){
+
+ctx.fillRect(e.x-10,e.y-10,20,20)
+
+}
+
+// プレイヤー
+ctx.save()
+
+ctx.translate(player.x,player.y)
+ctx.rotate(player.angle)
+
+ctx.fillStyle="cyan"
+ctx.fillRect(-12,-12,24,24)
+
+ctx.restore()
+
+}
+
 function loop(){
-    update();
-    draw();
-    requestAnimationFrame(loop);
+
+update()
+draw()
+
+requestAnimationFrame(loop)
+
 }
 
-loop();
+loop()
+
 </script>
 
 </body>
