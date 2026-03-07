@@ -1,33 +1,34 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
+<title>Coin Survivor</title>
 
 <style>
-
-body{
+html,body{
 margin:0;
+padding:0;
 overflow:hidden;
-font-family:Arial;
-background:linear-gradient(#6fd36f,#3ea63e);
+font-family:sans-serif;
+background:linear-gradient(#6ec6ff,#dff7ff);
 }
 
-canvas{
-display:block;
-}
-
-#scoreUI{
+#ui{
 position:absolute;
-top:20px;
-left:20px;
-color:white;
-font-size:26px;
-background:rgba(0,0,0,0.4);
-padding:12px 20px;
-border-radius:12px;
-backdrop-filter:blur(6px);
-box-shadow:0 0 10px rgba(0,0,0,0.4);
+top:10px;
+width:100%;
+text-align:center;
+font-weight:bold;
+font-size:22px;
+text-shadow:2px 2px 4px white;
+}
+
+#scoreBox{
+background:rgba(255,255,255,0.85);
+display:inline-block;
+padding:10px 30px;
+border-radius:20px;
+box-shadow:0 0 15px rgba(0,0,0,0.2);
 }
 
 #menu{
@@ -36,386 +37,295 @@ top:50%;
 left:50%;
 transform:translate(-50%,-50%);
 background:white;
-padding:35px;
-border-radius:16px;
+padding:40px;
+border-radius:20px;
 text-align:center;
-box-shadow:0 0 30px rgba(0,0,0,0.4);
-max-width:420px;
-}
-
-#gameOverUI{
-display:none;
-position:absolute;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-text-align:center;
-background:white;
-padding:35px;
-border-radius:16px;
-box-shadow:0 0 30px rgba(0,0,0,0.4);
+box-shadow:0 0 25px rgba(0,0,0,0.3);
+max-width:500px;
 }
 
 button{
+padding:15px 40px;
 font-size:20px;
-padding:10px 28px;
 border:none;
-border-radius:10px;
+border-radius:15px;
 background:#ffcc00;
 cursor:pointer;
-margin-top:10px;
+margin-top:20px;
 }
 
 button:hover{
-background:#ffd84d;
+background:#ffdd33;
 }
 
+canvas{
+display:block;
+}
 </style>
 </head>
 
 <body>
 
-<canvas id="game"></canvas>
-
-<div id="scoreUI"></div>
+<div id="ui">
+<div id="scoreBox">
+コイン: <span id="score">0</span>　
+ハイスコア: <span id="high">0</span>
+</div>
+</div>
 
 <div id="menu">
+<h2>コインサバイバー</h2>
 
-<h2>Coin Survival</h2>
-
-<p style="text-align:left">
-
-矢印キー：移動<br>
-Shift：ダッシュ<br><br>
-
-🟡 金コイン = 1点<br>
-⚪ 銀コイン = 3点<br><br>
-
-🧲 磁石：コインを吸い寄せる<br><br>
-
-10コインごとに敵が速くなる
-
+<p>
+😀 あなた<br>
+😈 敵（当たるとゲームオーバー）<br>
+🟡 ノーマルコイン = 1点<br>
+💜 レアコイン = 3点<br>
+💎 超レアコイン = 5点
 </p>
 
-<button onclick="startGame()">START</button>
+<p>
+コインを集めてスコアを伸ばそう！<br>
+<strong>10コインごとに敵が速くなる！</strong>
+</p>
 
+<button onclick="startGame()">スタート</button>
 </div>
 
-<div id="gameOverUI">
-
-<h1>GAME OVER</h1>
-
-<button onclick="restartGame()">Restart</button>
-
-</div>
+<canvas id="game"></canvas>
 
 <script>
 
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
 
-let w=window.innerWidth;
-let h=window.innerHeight;
+let W,H
 
-canvas.width=w;
-canvas.height=h;
-
-window.onresize=()=>{
-w=window.innerWidth;
-h=window.innerHeight;
-canvas.width=w;
-canvas.height=h;
+function resize(){
+W=window.innerWidth
+H=window.innerHeight
+canvas.width=W
+canvas.height=H
 }
+resize()
+window.addEventListener("resize",resize)
 
-let player;
-let enemies=[];
-let coins=[];
-let powerups=[];
+let player
+let coins=[]
+let enemies=[]
 
-let score=0;
-let highScore=0;
+let score=0
+let high=localStorage.getItem("coinHigh")||0
 
-let magnet=false;
-let magnetTimer=0;
+document.getElementById("high").innerText=high
 
-let enemySpeed=1.3;
-
-let gameOver=false;
-
-let keys={};
-
-document.addEventListener("keydown",e=>keys[e.key]=true);
-document.addEventListener("keyup",e=>keys[e.key]=false);
+let game=false
+let speedLevel=1
 
 function startGame(){
 
-document.getElementById("menu").style.display="none";
+document.getElementById("menu").style.display="none"
 
 player={
-x:w/2,
-y:h/2,
-size:18,
+x:W/2,
+y:H/2,
+size:30,
 speed:4
-};
-
-enemies=[];
-coins=[];
-powerups=[];
-
-score=0;
-enemySpeed=1.3;
-magnet=false;
-
-spawnCoin();
-
 }
 
-function restartGame(){
+coins=[]
+enemies=[]
 
-document.getElementById("gameOverUI").style.display="none";
+score=0
+speedLevel=1
 
-player.x=w/2;
-player.y=h/2;
+spawnCoin()
+spawnEnemy()
 
-enemies=[];
-coins=[];
-powerups=[];
-
-score=0;
-enemySpeed=1.3;
-magnet=false;
-
-gameOver=false;
-
-spawnCoin();
-
-}
-
-function spawnEnemy(){
-
-let fast=Math.random()<0.25;
-
-let speed=fast?enemySpeed+1:enemySpeed;
-
-let side=Math.floor(Math.random()*4);
-
-let enemy={x:0,y:0,speed:speed,fast:fast};
-
-if(side===0){enemy.x=0;enemy.y=Math.random()*h;}
-if(side===1){enemy.x=w;enemy.y=Math.random()*h;}
-if(side===2){enemy.x=Math.random()*w;enemy.y=0;}
-if(side===3){enemy.x=Math.random()*w;enemy.y=h;}
-
-enemies.push(enemy);
+game=true
+loop()
 
 }
 
 function spawnCoin(){
 
-let rare=Math.random()<0.25;
+let type=Math.random()
 
-coins.push({
-x:Math.random()*w,
-y:Math.random()*h,
-value:rare?3:1,
-size:rare?10:12
-});
+let value=1
+let color="gold"
 
-if(Math.random()<0.15){
+if(type<0.1){
+value=5
+color="cyan"
+}
+else if(type<0.3){
+value=3
+color="purple"
+}
 
-powerups.push({
-x:Math.random()*w,
-y:Math.random()*h
-});
+let x=Math.random()*(W-60)+30
+let y=Math.random()*(H-120)+90
+
+coins.push({x,y,value,color,size:28})
 
 }
 
+function spawnEnemy(){
+
+let x=Math.random()*W
+let y=Math.random()*H
+
+enemies.push({
+x,y,
+size:30,
+speed:1.3+speedLevel*0.3
+})
+
 }
 
-let enemyTimer=0;
+let keys={}
+
+window.addEventListener("keydown",e=>keys[e.key]=true)
+window.addEventListener("keyup",e=>keys[e.key]=false)
 
 function update(){
 
-if(!player || gameOver) return;
+if(keys["ArrowUp"]||keys["w"]) player.y-=player.speed
+if(keys["ArrowDown"]||keys["s"]) player.y+=player.speed
+if(keys["ArrowLeft"]||keys["a"]) player.x-=player.speed
+if(keys["ArrowRight"]||keys["d"]) player.x+=player.speed
 
-let speed=keys["Shift"]?6:4;
+player.x=Math.max(player.size,Math.min(W-player.size,player.x))
+player.y=Math.max(player.size+50,Math.min(H-player.size,player.y))
 
-if(keys["ArrowUp"])player.y-=speed;
-if(keys["ArrowDown"])player.y+=speed;
-if(keys["ArrowLeft"])player.x-=speed;
-if(keys["ArrowRight"])player.x+=speed;
+for(let e of enemies){
 
-enemyTimer++;
+let dx=player.x-e.x
+let dy=player.y-e.y
+let d=Math.hypot(dx,dy)
 
-if(enemyTimer>80){
+e.x+=dx/d*e.speed
+e.y+=dy/d*e.speed
 
-spawnEnemy();
-
-enemyTimer=0;
-
-}
-
-for(let enemy of enemies){
-
-let dx=player.x-enemy.x;
-let dy=player.y-enemy.y;
-
-let dist=Math.sqrt(dx*dx+dy*dy);
-
-enemy.x+=dx/dist*enemy.speed;
-enemy.y+=dy/dist*enemy.speed;
-
-if(dist<22){
-
-gameOver=true;
-
-document.getElementById("gameOverUI").style.display="block";
-
-if(score>highScore) highScore=score;
-
+if(d<player.size){
+gameOver()
 }
 
 }
 
 for(let i=coins.length-1;i>=0;i--){
 
-let c=coins[i];
+let c=coins[i]
 
-let dx=player.x-c.x;
-let dy=player.y-c.y;
+let d=Math.hypot(player.x-c.x,player.y-c.y)
 
-let dist=Math.sqrt(dx*dx+dy*dy);
+if(d<player.size){
 
-if(magnet && dist<200){
+score+=c.value
 
-c.x+=dx*-0.1;
-c.y+=dy*-0.1;
+document.getElementById("score").innerText=score
 
-}
+coins.splice(i,1)
 
-if(dist<22){
-
-score+=c.value;
-
-coins.splice(i,1);
-
-spawnCoin();
+spawnCoin()
 
 if(score%10===0){
 
-enemySpeed+=0.25;
+speedLevel++
 
-for(let e of enemies){
-e.speed+=0.25;
-}
+spawnEnemy()
 
 }
 
 }
 
 }
-
-for(let i=powerups.length-1;i>=0;i--){
-
-let p=powerups[i];
-
-let dx=player.x-p.x;
-let dy=player.y-p.y;
-
-if(Math.sqrt(dx*dx+dy*dy)<22){
-
-magnet=true;
-magnetTimer=600;
-
-powerups.splice(i,1);
-
-}
-
-}
-
-if(magnet){
-
-magnetTimer--;
-
-if(magnetTimer<=0) magnet=false;
-
-}
-
-}
-
-function drawPlayer(){
-
-ctx.fillStyle="#2f7df6";
-
-ctx.beginPath();
-ctx.arc(player.x,player.y,18,0,Math.PI*2);
-ctx.fill();
-
-ctx.fillStyle="white";
-
-ctx.beginPath();
-ctx.arc(player.x-6,player.y-4,4,0,Math.PI*2);
-ctx.arc(player.x+6,player.y-4,4,0,Math.PI*2);
-ctx.fill();
 
 }
 
 function draw(){
 
-ctx.clearRect(0,0,w,h);
-
-if(!player) return;
+ctx.clearRect(0,0,W,H)
 
 for(let c of coins){
 
-ctx.fillStyle=c.value==3?"silver":"gold";
-
-ctx.beginPath();
-ctx.arc(c.x,c.y,10,0,Math.PI*2);
-ctx.fill();
-
-}
-
-for(let p of powerups){
-
-ctx.fillStyle="cyan";
-
-ctx.beginPath();
-ctx.arc(p.x,p.y,10,0,Math.PI*2);
-ctx.fill();
+ctx.beginPath()
+ctx.fillStyle=c.color
+ctx.arc(c.x,c.y,c.size,0,Math.PI*2)
+ctx.fill()
 
 }
 
 for(let e of enemies){
 
-ctx.fillStyle=e.fast?"purple":"red";
+ctx.fillStyle="red"
+ctx.beginPath()
+ctx.arc(e.x,e.y,e.size,0,Math.PI*2)
+ctx.fill()
 
-ctx.beginPath();
-ctx.arc(e.x,e.y,12,0,Math.PI*2);
-ctx.fill();
+ctx.fillStyle="white"
+ctx.beginPath()
+ctx.arc(e.x-8,e.y-5,5,0,Math.PI*2)
+ctx.arc(e.x+8,e.y-5,5,0,Math.PI*2)
+ctx.fill()
+
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.arc(e.x-8,e.y-5,2,0,Math.PI*2)
+ctx.arc(e.x+8,e.y-5,2,0,Math.PI*2)
+ctx.fill()
 
 }
 
-drawPlayer();
+ctx.fillStyle="orange"
+ctx.beginPath()
+ctx.arc(player.x,player.y,player.size,0,Math.PI*2)
+ctx.fill()
 
-document.getElementById("scoreUI").innerHTML=
-"⭐ Score: "+score+"<br>🏆 High Score: "+highScore;
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.arc(player.x-8,player.y-5,3,0,Math.PI*2)
+ctx.arc(player.x+8,player.y-5,3,0,Math.PI*2)
+ctx.fill()
+
+ctx.beginPath()
+ctx.arc(player.x,player.y+3,6,0,Math.PI)
+ctx.stroke()
 
 }
 
 function loop(){
 
-update();
-draw();
+if(!game) return
 
-requestAnimationFrame(loop);
+update()
+draw()
+
+requestAnimationFrame(loop)
 
 }
 
-loop();
+function gameOver(){
+
+game=false
+
+if(score>high){
+high=score
+localStorage.setItem("coinHigh",high)
+}
+
+document.getElementById("high").innerText=high
+
+document.getElementById("menu").innerHTML=
+"<h2>ゲームオーバー</h2>"+
+"<p>スコア: "+score+"</p>"+
+"<button onclick='startGame()'>もう一回</button>"
+
+document.getElementById("menu").style.display="block"
+
+}
 
 </script>
 
 </body>
 </html>
-```
