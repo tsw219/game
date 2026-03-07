@@ -1,22 +1,42 @@
+```html
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Survival Coin Game</title>
+<title>Coin Survival</title>
 
 <style>
 
 body{
 margin:0;
-background:#111;
-color:white;
+background:linear-gradient(#87ceeb,#4aa3ff);
 font-family:sans-serif;
 text-align:center;
 }
 
+h2{
+margin-top:10px;
+}
+
 canvas{
-background:#222;
-margin-top:20px;
+background:#6ecb63;
+margin-top:10px;
+border-radius:10px;
+box-shadow:0 0 10px rgba(0,0,0,0.3);
+}
+
+button{
+margin-top:10px;
+padding:10px 20px;
+font-size:18px;
+border:none;
+border-radius:8px;
+background:#ffcc00;
+cursor:pointer;
+}
+
+button:hover{
+background:#ffd84d;
 }
 
 </style>
@@ -25,63 +45,51 @@ margin-top:20px;
 <body>
 
 <h2>Coin Survival</h2>
-<p>矢印キーで移動 / コインを集める / 敵に当たると終了</p>
+<p>矢印キーで移動 / コインを集める / 敵に当たるとゲームオーバー</p>
 
-<canvas id="game" width="600" height="400"></canvas>
+<canvas id="game" width="600" height="400"></canvas><br>
+<button onclick="restartGame()">Restart</button>
 
 <script>
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let player = {
-x:300,
-y:200,
-size:20,
-speed:4
-};
+let player;
+let enemies;
+let coins;
+let score;
+let gameOver;
 
 let keys={};
 
-let enemies=[];
-let coins=[];
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
 
-let score=0;
-let gameOver=false;
+function restartGame(){
 
-document.addEventListener("keydown",e=>{
-keys[e.key]=true;
-});
+player={x:300,y:200,size:25,speed:4};
 
-document.addEventListener("keyup",e=>{
-keys[e.key]=false;
-});
+enemies=[];
+coins=[];
+
+score=0;
+gameOver=false;
+
+spawnCoin();
+
+}
 
 function spawnEnemy(){
 
 let side=Math.floor(Math.random()*4);
 
-let enemy={size:20,speed:1+Math.random()*1.5};
+let enemy={size:26,speed:1.2};
 
-if(side===0){
-enemy.x=0;
-enemy.y=Math.random()*400;
-}
-
-if(side===1){
-enemy.x=600;
-enemy.y=Math.random()*400;
-}
-
-if(side===2){
-enemy.x=Math.random()*600;
-enemy.y=0;
-}
-
-if(side===3){
-enemy.x=Math.random()*600;
-enemy.y=400;
-}
+if(side===0){enemy.x=0;enemy.y=Math.random()*400;}
+if(side===1){enemy.x=600;enemy.y=Math.random()*400;}
+if(side===2){enemy.x=Math.random()*600;enemy.y=0;}
+if(side===3){enemy.x=Math.random()*600;enemy.y=400;}
 
 enemies.push(enemy);
 
@@ -92,12 +100,10 @@ function spawnCoin(){
 coins.push({
 x:Math.random()*560+20,
 y:Math.random()*360+20,
-size:10
+size:12
 });
 
 }
-
-spawnCoin();
 
 let enemyTimer=0;
 
@@ -115,7 +121,7 @@ player.y=Math.max(0,Math.min(400-player.size,player.y));
 
 enemyTimer++;
 
-if(enemyTimer>60){
+if(enemyTimer>70){
 spawnEnemy();
 enemyTimer=0;
 }
@@ -124,13 +130,12 @@ for(let enemy of enemies){
 
 let dx=player.x-enemy.x;
 let dy=player.y-enemy.y;
-
 let dist=Math.sqrt(dx*dx+dy*dy);
 
 enemy.x+=dx/dist*enemy.speed;
 enemy.y+=dy/dist*enemy.speed;
 
-if(dist<20){
+if(dist<25){
 gameOver=true;
 }
 
@@ -143,7 +148,7 @@ let coin=coins[i];
 let dx=player.x-coin.x;
 let dy=player.y-coin.y;
 
-if(Math.sqrt(dx*dx+dy*dy)<20){
+if(Math.sqrt(dx*dx+dy*dy)<25){
 
 score++;
 coins.splice(i,1);
@@ -155,42 +160,84 @@ spawnCoin();
 
 }
 
-function draw(){
+function drawPlayer(){
 
-ctx.clearRect(0,0,600,400);
-
-ctx.fillStyle="yellow";
-
-for(let coin of coins){
-
+ctx.fillStyle="#4fc3f7";
 ctx.beginPath();
-ctx.arc(coin.x,coin.y,coin.size,0,Math.PI*2);
+ctx.arc(player.x,player.y,20,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="white";
+ctx.beginPath();
+ctx.arc(player.x-7,player.y-5,4,0,Math.PI*2);
+ctx.arc(player.x+7,player.y-5,4,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="black";
+ctx.beginPath();
+ctx.arc(player.x-7,player.y-5,2,0,Math.PI*2);
+ctx.arc(player.x+7,player.y-5,2,0,Math.PI*2);
 ctx.fill();
 
 }
 
-ctx.fillStyle="red";
+function drawEnemy(enemy){
 
-for(let enemy of enemies){
+ctx.fillStyle="#ff4d4d";
+ctx.beginPath();
+ctx.arc(enemy.x,enemy.y,13,0,Math.PI*2);
+ctx.fill();
 
-ctx.fillRect(enemy.x,enemy.y,enemy.size,enemy.size);
+ctx.fillStyle="white";
+ctx.beginPath();
+ctx.arc(enemy.x-4,enemy.y-3,3,0,Math.PI*2);
+ctx.arc(enemy.x+4,enemy.y-3,3,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="black";
+ctx.beginPath();
+ctx.arc(enemy.x-4,enemy.y-3,1.5,0,Math.PI*2);
+ctx.arc(enemy.x+4,enemy.y-3,1.5,0,Math.PI*2);
+ctx.fill();
 
 }
 
-ctx.fillStyle="cyan";
-ctx.fillRect(player.x,player.y,player.size,player.size);
+function drawCoin(coin){
 
-ctx.fillStyle="white";
+ctx.fillStyle="#ffd700";
+ctx.beginPath();
+ctx.arc(coin.x,coin.y,coin.size,0,Math.PI*2);
+ctx.fill();
+
+ctx.strokeStyle="#fff4b3";
+ctx.lineWidth=2;
+ctx.stroke();
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,600,400);
+
+for(let coin of coins){
+drawCoin(coin);
+}
+
+for(let enemy of enemies){
+drawEnemy(enemy);
+}
+
+drawPlayer();
+
+ctx.fillStyle="black";
 ctx.font="20px sans-serif";
 ctx.fillText("Score: "+score,10,25);
 
 if(gameOver){
 
+ctx.fillStyle="black";
 ctx.font="40px sans-serif";
 ctx.fillText("GAME OVER",200,200);
-
-ctx.font="20px sans-serif";
-ctx.fillText("Refresh to restart",230,240);
 
 }
 
@@ -205,9 +252,11 @@ requestAnimationFrame(gameLoop);
 
 }
 
+restartGame();
 gameLoop();
 
 </script>
 
 </body>
 </html>
+```
