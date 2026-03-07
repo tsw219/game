@@ -3,36 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <title>Time Clone Puzzle</title>
+
 <style>
 body{
-margin:0;
 background:#111;
 color:white;
-font-family:sans-serif;
 text-align:center;
+font-family:sans-serif;
 }
+
 canvas{
 background:#222;
 margin-top:20px;
 }
 </style>
-</head>
 
+</head>
 <body>
 
-<h2>Time Clone Puzzle</h2>
-<p>矢印キー: 移動 / R: 時間を巻き戻して分身</p>
+<h2>TIME CLONE PUZZLE</h2>
+
+<p>
+矢印キー：移動<br>
+Rキー：時間を戻して分身を作る<br>
+スイッチを押してドアを開けてゴールへ
+</p>
 
 <canvas id="game" width="500" height="500"></canvas>
 
 <script>
 
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-const size=50;
+const size = 50;
 
-let level=[
+let map=[
 [1,1,1,1,1,1,1,1,1,1],
 [1,0,0,0,0,0,0,0,3,1],
 [1,0,1,1,0,1,1,0,0,1],
@@ -60,52 +66,71 @@ if(e.key=="ArrowDown")ny++;
 if(e.key=="ArrowLeft")nx--;
 if(e.key=="ArrowRight")nx++;
 
-if(level[ny][nx]!=1){
+if(map[ny][nx]!=1 && map[ny][nx]!=4){
+
 history.push({x:player.x,y:player.y});
+
 player.x=nx;
 player.y=ny;
+
 }
 
 if(e.key=="r"||e.key=="R"){
+
 clones.push([...history]);
+
 history=[];
+
+player.x=1;
+player.y=1;
+
 }
 
 });
 
+let frame=0;
+
 function drawTile(x,y,type){
 
 if(type==1){
-ctx.fillStyle="#555";
+
+ctx.fillStyle="#666";
 ctx.fillRect(x,y,size,size);
+
 }
 
 if(type==2){
+
 ctx.fillStyle="yellow";
 ctx.fillRect(x+10,y+10,30,30);
+
 }
 
 if(type==3){
+
 ctx.fillStyle="lime";
 ctx.fillRect(x+10,y+10,30,30);
+
 }
 
 if(type==4){
+
 ctx.fillStyle="red";
 ctx.fillRect(x+10,y+10,30,30);
-}
 
 }
 
-let frame=0;
+}
 
-function draw(){
+function game(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
 for(let y=0;y<10;y++){
 for(let x=0;x<10;x++){
-drawTile(x*size,y*size,level[y][x]);
+
+drawTile(x*size,y*size,map[y][x]);
+
 }
 }
 
@@ -114,11 +139,14 @@ for(let c of clones){
 let step=c[Math.min(frame,c.length-1)];
 
 if(step){
+
 ctx.fillStyle="cyan";
 ctx.fillRect(step.x*size+10,step.y*size+10,30,30);
 
-if(level[step.y][step.x]==2){
-level[8][1]=0;
+if(map[step.y][step.x]==2){
+
+map[8][1]=0;
+
 }
 
 }
@@ -128,22 +156,28 @@ level[8][1]=0;
 ctx.fillStyle="blue";
 ctx.fillRect(player.x*size+10,player.y*size+10,30,30);
 
-if(level[player.y][player.x]==2){
-level[8][1]=0;
+if(map[player.y][player.x]==2){
+
+map[8][1]=0;
+
 }
 
-if(level[player.y][player.x]==3){
+if(map[player.y][player.x]==3){
+
 alert("CLEAR!");
 location.reload();
+
 }
 
 frame++;
 
-requestAnimationFrame(draw);
+requestAnimationFrame(game);
+
 }
 
-draw();
+game();
 
 </script>
+
 </body>
 </html>
