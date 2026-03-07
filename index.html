@@ -4,9 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Coin Survival</title>
-
 <style>
-
 html,body{
 margin:0;
 padding:0;
@@ -41,30 +39,31 @@ left:10px;
 font-size:18px;
 }
 
-canvas{
-display:block;
+canvas{display:block;}
+
+#rules{
+text-align:center;
+line-height:1.6;
+max-width:500px;
 }
 
 </style>
-
 </head>
-
 <body>
 
 <div id="menu">
 
 <h1>Coin Survival</h1>
 
-<div>
-矢印キーで移動<br>
-コインを集めてスコアアップ<br>
-敵に当たるとゲームオーバー<br>
-Shiftで一瞬ダッシュ
+<div id="rules">
+矢印キーで移動してコインを集めよう。<br>
+敵に当たるとゲームオーバー。<br>
+Shiftキーで一瞬だけダッシュできます。
 </div>
 
 <br>
 
-<input id="nameInput" placeholder="プレイヤー名">
+<input id="nameInput" placeholder="プレイヤー名（空欄でもOK）">
 
 <button onclick="startGame()">START</button>
 
@@ -87,10 +86,8 @@ Shiftで一瞬ダッシュ
 </div>
 
 <div id="ui" style="display:none">
-
 Score: <span id="score">0</span><br>
 Dash: <span id="dash">Ready</span>
-
 </div>
 
 <canvas id="game"></canvas>
@@ -122,12 +119,9 @@ document.addEventListener("keydown",e=>{
 keys[e.key]=true
 
 if(e.key==="Shift" && dashCooldown<=0){
-
 player.speed=8
 setTimeout(()=>player.speed=4,200)
-
 dashCooldown=10
-
 }
 
 })
@@ -147,16 +141,17 @@ playerName=input
 player={
 x:200,
 y:200,
-size:20,
+size:22,
 speed:4
 }
 
 enemies=[]
 coins=[]
 score=0
+
 dashCooldown=0
 
-spawnEnemies(5)
+spawnEnemies(6)
 spawnCoin()
 
 running=true
@@ -169,39 +164,31 @@ loop()
 }
 
 function spawnEnemies(n){
-
 for(let i=0;i<n;i++){
 
 enemies.push({
 x:Math.random()*canvas.width,
 y:Math.random()*canvas.height,
-size:20,
-speed:2+Math.random()*1.5
+size:22,
+speed:2+Math.random()*1.2
 })
 
 }
-
 }
 
 function spawnCoin(){
-
 coins.push({
 x:Math.random()*canvas.width,
 y:Math.random()*canvas.height,
 size:10
 })
-
 }
 
 function loop(){
-
 if(!running)return
-
 update()
 draw()
-
 requestAnimationFrame(loop)
-
 }
 
 function update(){
@@ -218,6 +205,7 @@ let dy=player.y-e.y
 let d=Math.hypot(dx,dy)
 
 e.x+=dx/d*e.speed
+
 e.y+=dy/d*e.speed
 
 if(d<player.size+e.size){
@@ -229,20 +217,17 @@ endGame()
 for(let i=coins.length-1;i>=0;i--){
 
 let c=coins[i]
-
 let d=Math.hypot(player.x-c.x,player.y-c.y)
 
 if(d<player.size+c.size){
-
 coins.splice(i,1)
 score++
 spawnCoin()
-
 }
 
 }
 
-if(enemies.length<12 && Math.random()<0.01){
+if(enemies.length<14 && Math.random()<0.015){
 spawnEnemies(1)
 }
 
@@ -260,31 +245,50 @@ function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-ctx.fillStyle="yellow"
-
+/* coins */
+ctx.fillStyle="gold"
 for(const c of coins){
-
 ctx.beginPath()
 ctx.arc(c.x,c.y,c.size,0,Math.PI*2)
 ctx.fill()
-
 }
 
-ctx.fillStyle="red"
-
+/* enemies with face */
 for(const e of enemies){
 
+ctx.fillStyle="#ef4444"
 ctx.beginPath()
 ctx.arc(e.x,e.y,e.size,0,Math.PI*2)
 ctx.fill()
 
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.arc(e.x-6,e.y-4,3,0,Math.PI*2)
+ctx.arc(e.x+6,e.y-4,3,0,Math.PI*2)
+ctx.fill()
+
+ctx.beginPath()
+ctx.arc(e.x,e.y+3,6,0,Math.PI)
+ctx.stroke()
+
 }
 
-ctx.fillStyle="cyan"
+/* player with face */
 
+ctx.fillStyle="#22d3ee"
 ctx.beginPath()
 ctx.arc(player.x,player.y,player.size,0,Math.PI*2)
 ctx.fill()
+
+ctx.fillStyle="black"
+ctx.beginPath()
+ctx.arc(player.x-6,player.y-4,3,0,Math.PI*2)
+ctx.arc(player.x+6,player.y-4,3,0,Math.PI*2)
+ctx.fill()
+
+ctx.beginPath()
+ctx.arc(player.x,player.y+3,6,0,Math.PI)
+ctx.stroke()
 
 }
 
@@ -314,9 +318,7 @@ showTop5()
 }
 
 function loadScores(){
-
 return JSON.parse(localStorage.getItem("scores")||"{}")
-
 }
 
 function saveScore(){
