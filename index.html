@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html>
 <head>
@@ -21,7 +22,7 @@ position:absolute;
 top:20px;
 left:20px;
 color:white;
-font-size:26px;
+font-size:22px;
 background:rgba(0,0,0,0.4);
 padding:12px 20px;
 border-radius:12px;
@@ -55,6 +56,12 @@ border-radius:16px;
 box-shadow:0 0 30px rgba(0,0,0,0.4);
 }
 
+input{
+padding:8px;
+font-size:16px;
+margin-top:10px;
+}
+
 button{
 font-size:20px;
 padding:10px 28px;
@@ -67,6 +74,12 @@ margin-top:10px;
 
 button:hover{
 background:#ffd84d;
+}
+
+#ranking{
+margin-top:10px;
+font-size:16px;
+text-align:left;
 }
 
 </style>
@@ -85,7 +98,7 @@ background:#ffd84d;
 <p style="text-align:left">
 
 矢印キー：移動<br>
-Shift：ダッシュ<br><br>
+Shift：ダッシュ（10秒クールダウン）<br><br>
 
 🟡 金コイン = 1点<br>
 ⚪ 銀コイン = 3点<br><br>
@@ -94,7 +107,13 @@ Shift：ダッシュ<br><br>
 
 </p>
 
+<input id="nameInput" placeholder="プレーヤー名">
+
+<br>
+
 <button onclick="startGame()">START</button>
+
+<div id="ranking"></div>
 
 </div>
 
@@ -131,7 +150,13 @@ let coins=[];
 let score=0;
 let highScore=localStorage.getItem("coinHighScore")||0;
 
+let playerName="Player1";
+
 let enemySpeed=1.45;
+
+let dashCooldown=0;
+let dashActive=false;
+let dashTimer=0;
 
 let gameOver=false;
 
@@ -144,6 +169,10 @@ document.addEventListener("keydown",e=>keys[e.key]=true);
 document.addEventListener("keyup",e=>keys[e.key]=false);
 
 function startGame(){
+
+let name=document.getElementById("nameInput").value;
+
+playerName=name?name:"Player1";
 
 document.getElementById("menu").style.display="none";
 
@@ -231,7 +260,13 @@ function update(){
 
 if(!player || gameOver) return;
 
-let speed=keys["Shift"]?6:4;
+if(keys["Shift"] && dashCooldown<=0 && !dashActive){
+dashActive=true;
+dashTimer=60;
+dashCooldown=600;
+}
+
+let speed=dashActive?8:4;
 
 if(keys["ArrowUp"])player.y-=speed;
 if(keys["ArrowDown"])player.y+=speed;
@@ -240,6 +275,18 @@ if(keys["ArrowRight"])player.x+=speed;
 
 player.x=Math.max(player.size,Math.min(w-player.size,player.x));
 player.y=Math.max(player.size,Math.min(h-player.size,player.y));
+
+if(dashActive){
+
+dashTimer--;
+
+if(dashTimer<=0){
+dashActive=false;
+}
+
+}
+
+if(dashCooldown>0) dashCooldown--;
 
 enemyTimer++;
 
@@ -267,12 +314,7 @@ gameOver=true;
 
 document.getElementById("gameOverUI").style.display="block";
 
-if(score>highScore){
-
-highScore=score;
-localStorage.setItem("coinHighScore",highScore);
-
-}
+saveScore();
 
 }
 
@@ -308,6 +350,36 @@ e.speed+=0.35;
 }
 
 }
+
+}
+
+function saveScore(){
+
+let ranking=JSON.parse(localStorage.getItem("coinRanking")||"[]");
+
+ranking.push({name:playerName,score:score});
+
+ranking.sort((a,b)=>b.score-a.score);
+
+ranking=ranking.slice(0,5);
+
+localStorage.setItem("coinRanking",JSON.stringify(ranking));
+
+showRanking();
+
+}
+
+function showRanking(){
+
+let ranking=JSON.parse(localStorage.getItem("coinRanking")||"[]");
+
+let html="<h3>🏆 Ranking</h3>";
+
+ranking.forEach((r,i)=>{
+html+=`${i+1}. ${r.name} - ${r.score}<br>`;
+});
+
+document.getElementById("ranking").innerHTML=html;
 
 }
 
@@ -371,7 +443,9 @@ ctx.fill();
 drawPlayer();
 
 document.getElementById("scoreUI").innerHTML=
-"⭐ Score: "+score+"<br>🏆 High Score: "+highScore;
+"⭐ Score: "+score+
+"<br>🏆 High Score: "+highScore+
+"<br>⚡ Dash: "+(dashCooldown>0?Math.ceil(dashCooldown/60)+"s":"Ready");
 
 }
 
@@ -383,6 +457,8 @@ draw();
 requestAnimationFrame(loop);
 
 }
+
+showRanking();
 
 loop();
 
