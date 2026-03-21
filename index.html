@@ -21,22 +21,18 @@ body{
     width:320px;
 }
 
-h1{
-    margin-bottom:10px;
-}
+h1{ margin-bottom:10px; }
 
-#level{
-    font-size:20px;
-}
+#level{ font-size:20px; }
 
 #highscore{
     font-size:16px;
-    margin-bottom:5px;
     color:#ffd54f;
 }
 
 #info{
     margin:10px;
+    font-size:18px;
 }
 
 #countdown{
@@ -73,6 +69,16 @@ h1{
     background:#ff1744;
 }
 
+.successFlash{
+    animation:flash 0.6s;
+}
+
+@keyframes flash{
+    0%{transform:scale(1);}
+    50%{transform:scale(1.1);}
+    100%{transform:scale(1);}
+}
+
 button{
     margin-top:15px;
     padding:10px 20px;
@@ -84,13 +90,7 @@ button{
     cursor:pointer;
 }
 
-button:hover{
-    background:#ffa726;
-}
-
-#gameOver{
-    display:none;
-}
+#gameOver{ display:none; }
 </style>
 </head>
 
@@ -98,27 +98,21 @@ button:hover{
 
 <div id="container">
 
-<!-- スタート画面 -->
 <div id="startScreen">
     <h1>記憶パズル</h1>
-    <p>
-        光ったマスを覚えて再現しよう！<br>
-        レベルが上がるほど難しくなる
-    </p>
+    <p>光ったマスを覚えて再現しよう！</p>
     <button onclick="startGame()">スタート</button>
 </div>
 
-<!-- ゲーム画面 -->
 <div id="gameScreen" style="display:none;">
     <h1>記憶パズル</h1>
-    <div id="highscore">High Score: 1</div>
-    <div id="level">Level 1</div>
-    <div id="info">覚えて！</div>
+    <div id="highscore"></div>
+    <div id="level"></div>
+    <div id="info"></div>
     <div id="countdown"></div>
     <div id="game"></div>
 </div>
 
-<!-- ゲームオーバー -->
 <div id="gameOver">
     <h1>ゲームオーバー</h1>
     <p id="finalScore"></p>
@@ -136,11 +130,15 @@ let showing = true;
 let countdownTimer;
 
 let highScore = localStorage.getItem("memoryHighScore") || 1;
-document.getElementById("highscore").innerText = "High Score: " + highScore;
 
 function getShowTime(){
-    // レベルで増えるが上限あり
-    return Math.min(1500 + level*120, 4000);
+    // ゆるやかに増える（急に難しくならない）
+    return Math.min(1800 + level*80, 3500);
+}
+
+function getPatternCount(){
+    // 少しずつ増える
+    return Math.min(3 + Math.floor(level/2), size*size-1);
 }
 
 function startGame(){
@@ -153,6 +151,7 @@ function startGame(){
 
     document.getElementById("level").innerText = "Level " + level;
     document.getElementById("highscore").innerText = "High Score: " + highScore;
+    document.getElementById("info").innerText = "覚えて！";
 
     const game = document.getElementById("game");
     game.innerHTML = "";
@@ -165,7 +164,7 @@ function startGame(){
         game.appendChild(div);
     }
 
-    let count = Math.floor(size*size/3);
+    let count = getPatternCount();
     while(pattern.length < count){
         let r = Math.floor(Math.random()*size*size);
         if(!pattern.includes(r)) pattern.push(r);
@@ -176,30 +175,21 @@ function startGame(){
 
 function showPattern(){
     showing = true;
-    document.getElementById("info").innerText = "覚えて！";
 
     const cells = document.querySelectorAll(".cell");
-
-    pattern.forEach(i => {
-        cells[i].classList.add("active");
-    });
+    pattern.forEach(i => cells[i].classList.add("active"));
 
     let time = getShowTime();
     let start = Date.now();
 
     clearInterval(countdownTimer);
     countdownTimer = setInterval(()=>{
-        let elapsed = Date.now() - start;
-        let remaining = Math.max(0, time - elapsed);
-
+        let remaining = Math.max(0, time - (Date.now()-start));
         document.getElementById("countdown").innerText = (remaining/1000).toFixed(2);
+        if(remaining <= 0) clearInterval(countdownTimer);
+    },10);
 
-        if(remaining <= 0){
-            clearInterval(countdownTimer);
-        }
-    }, 10);
-
-    setTimeout(() => {
+    setTimeout(()=>{
         cells.forEach(c => c.classList.remove("active"));
         showing = false;
         document.getElementById("info").innerText = "再現してください";
@@ -221,11 +211,26 @@ function clickCell(index, div){
     }
 
     if(player.length === pattern.length){
-        level++;
-        size = Math.min(3 + Math.floor(level/2), 7);
-
-        setTimeout(startGame,800);
+        success();
     }
+}
+
+function success(){
+    document.getElementById("info").innerText = "成功！";
+
+    document.getElementById("game").classList.add("successFlash");
+
+    level++;
+
+    // マスはゆっくり増やす
+    if(level % 3 === 0){
+        size = Math.min(size+1, 7);
+    }
+
+    setTimeout(()=>{
+        document.getElementById("game").classList.remove("successFlash");
+        startGame();
+    },1000);
 }
 
 function gameOver(){
