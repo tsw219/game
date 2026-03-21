@@ -2,90 +2,150 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>記憶パズルゲーム</title>
+<title>記憶パズル</title>
 
 <style>
 body{
     margin:0;
     font-family:sans-serif;
-    background:#1e1e2f;
+    background:linear-gradient(135deg,#1a1a2e,#16213e);
     color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+#container{
     text-align:center;
 }
 
 h1{
-    margin:20px;
+    margin-bottom:10px;
+}
+
+#level{
+    font-size:20px;
+    margin:10px;
+}
+
+#info{
+    margin:10px;
+    font-size:18px;
+}
+
+#countdown{
+    font-size:28px;
+    margin:10px;
+    color:#ffd54f;
 }
 
 #game{
     display:grid;
-    gap:5px;
+    gap:6px;
     justify-content:center;
-    margin-top:20px;
+    margin-top:15px;
 }
 
 .cell{
-    width:50px;
-    height:50px;
-    background:#444;
+    width:55px;
+    height:55px;
+    background:#394867;
+    border-radius:8px;
     cursor:pointer;
     transition:0.2s;
 }
 
+.cell:hover{
+    transform:scale(1.05);
+}
+
 .cell.active{
-    background:#4caf50;
+    background:#00c853;
+    box-shadow:0 0 15px #00e676;
 }
 
 .cell.correct{
-    background:#2196f3;
+    background:#2979ff;
 }
 
 .cell.wrong{
-    background:#e53935;
+    background:#d50000;
 }
 
 button{
-    margin-top:20px;
-    padding:10px 20px;
+    margin-top:15px;
+    padding:10px 25px;
     font-size:16px;
+    border:none;
+    border-radius:8px;
+    background:#ff9800;
+    color:white;
     cursor:pointer;
+}
+
+button:hover{
+    background:#ffa726;
 }
 </style>
 </head>
 
 <body>
 
-<h1>記憶パズル</h1>
-<p id="info">スタートを押してください</p>
-<button onclick="startGame()">スタート</button>
+<div id="container">
 
-<div id="game"></div>
+<div id="startScreen">
+    <h1>記憶パズル</h1>
+    <p>
+        光ったマスを覚えてください。<br>
+        その後、同じ場所をクリックして再現します。<br>
+        レベルが上がるほど難しくなります。
+    </p>
+    <button onclick="startGame()">スタート</button>
+</div>
+
+<div id="gameScreen" style="display:none;">
+    <h1>記憶パズル</h1>
+    <div id="level">Level 1</div>
+    <div id="info">覚えて！</div>
+    <div id="countdown"></div>
+    <div id="game"></div>
+</div>
+
+</div>
 
 <script>
 let size = 3;
+let level = 1;
 let pattern = [];
 let player = [];
 let showing = true;
 
+function getShowTime(){
+    // レベル上がっても短くなりすぎない調整
+    return Math.max(2000 - level*80, 1000);
+}
+
 function startGame(){
+    document.getElementById("startScreen").style.display = "none";
+    document.getElementById("gameScreen").style.display = "block";
+
     player = [];
     pattern = [];
 
+    document.getElementById("level").innerText = "Level " + level;
+
     const game = document.getElementById("game");
     game.innerHTML = "";
-
-    game.style.gridTemplateColumns = `repeat(${size}, 50px)`;
+    game.style.gridTemplateColumns = `repeat(${size}, 55px)`;
 
     for(let i=0;i<size*size;i++){
         const div = document.createElement("div");
         div.classList.add("cell");
-
         div.onclick = () => clickCell(i, div);
-
         game.appendChild(div);
     }
 
-    // ランダムパターン生成
     let count = Math.floor(size*size/3);
     while(pattern.length < count){
         let r = Math.floor(Math.random()*size*size);
@@ -105,16 +165,26 @@ function showPattern(){
         cells[i].classList.add("active");
     });
 
+    let time = getShowTime();
+    let seconds = Math.ceil(time/1000);
+    document.getElementById("countdown").innerText = seconds;
+
+    let interval = setInterval(()=>{
+        seconds--;
+        document.getElementById("countdown").innerText = seconds;
+        if(seconds <= 0) clearInterval(interval);
+    },1000);
+
     setTimeout(() => {
         cells.forEach(c => c.classList.remove("active"));
         showing = false;
         document.getElementById("info").innerText = "再現してください";
-    }, 1500 + size*200);
+        document.getElementById("countdown").innerText = "";
+    }, time);
 }
 
 function clickCell(index, div){
     if(showing) return;
-
     if(player.includes(index)) return;
 
     player.push(index);
@@ -122,17 +192,22 @@ function clickCell(index, div){
 
     if(!pattern.includes(index)){
         div.classList.add("wrong");
-        document.getElementById("info").innerText = "失敗！最初から";
+        document.getElementById("info").innerText = "失敗！レベル1に戻る";
+
+        level = 1;
         size = 3;
+
+        setTimeout(startGame,1500);
         return;
     }
 
-    // クリア判定
     if(player.length === pattern.length){
-        document.getElementById("info").innerText = "成功！次へ";
+        document.getElementById("info").innerText = "成功！";
 
-        size++;
-        setTimeout(startGame, 1000);
+        level++;
+        size = Math.min(3 + Math.floor(level/2), 7);
+
+        setTimeout(startGame,1000);
     }
 }
 </script>
