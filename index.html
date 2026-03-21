@@ -43,27 +43,24 @@ input{
     transition:0.1s;
 }
 
-/* 押した感触 */
 .cell:active{
     transform:scale(0.9);
 }
 
-.cell.active{
-    background:#00e676;
-}
-
-.cell.correct{
-    background:#2979ff;
-}
-
-.cell.wrong{
-    background:#ff1744;
-}
+.cell.active{ background:#00e676; }
+.cell.correct{ background:#2979ff; }
+.cell.wrong{ background:#ff1744; }
 
 #game{
     display:grid;
     gap:6px;
     justify-content:center;
+}
+
+#countdown{
+    font-size:40px; /* ← 大きくした */
+    color:#00e5ff;
+    margin:10px;
 }
 
 #successText{
@@ -88,21 +85,18 @@ button{
 
 <div id="container">
 
-<!-- スタート -->
 <div id="startScreen">
     <h1>記憶パズル</h1>
 
-    <div>
-        名前：<input id="nameInput" placeholder="空欄OK">
-        <div style="font-size:12px;">※空欄なら自動でPlayer名になります</div>
-    </div>
+    名前：<input id="nameInput" placeholder="空欄OK">
+    <div style="font-size:12px;">※空欄なら自動でPlayer名</div>
 
+    <br>
     <button onclick="startGame()">スタート</button>
 
     <div id="ranking"></div>
 </div>
 
-<!-- ゲーム -->
 <div id="gameScreen" style="display:none;">
     <h2 id="level"></h2>
     <div id="info"></div>
@@ -110,7 +104,6 @@ button{
     <div id="game"></div>
 </div>
 
-<!-- 終了 -->
 <div id="gameOver" style="display:none;">
     <h1>ゲームオーバー</h1>
     <p id="finalScore"></p>
@@ -131,25 +124,21 @@ let countdownTimer;
 
 let scores = JSON.parse(localStorage.getItem("ranking") || "[]");
 
-// 🔊 音（生成型で確実に鳴る）
+// 音
 function playSound(freq, time){
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-
     osc.connect(gain);
     gain.connect(ctx.destination);
-
     osc.frequency.value = freq;
     osc.start();
-
     gain.gain.setValueAtTime(0.2, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + time);
-
     osc.stop(ctx.currentTime + time);
 }
 
-// 🏆 ランキング表示
+// ランキング表示
 function updateRanking(){
     let text = "🏆 Ranking<br>";
     scores.slice(0,5).forEach((s,i)=>{
@@ -158,15 +147,20 @@ function updateRanking(){
     document.getElementById("ranking").innerHTML = text;
 }
 
-// 名前処理
+// 名前取得（完全修正版）
 function getPlayerName(){
     let input = document.getElementById("nameInput").value.trim();
 
+    // 空欄なら確実にPlayer番号生成
     if(input === ""){
-        let count = scores.filter(s => s.name.startsWith("Player")).length + 1;
-        return "Player" + count;
+        let num = 1;
+        while(scores.some(s => s.name === "Player" + num)){
+            num++;
+        }
+        return "Player" + num;
     }
 
+    // 同名チェック
     if(scores.some(s => s.name === input)){
         alert("同じ名前があります！");
         return null;
@@ -254,7 +248,7 @@ function clickCell(i,div){
     if(showing) return;
     if(player.includes(i)) return;
 
-    playSound(400,0.1); // クリック音
+    playSound(400,0.1);
 
     player.push(i);
     div.classList.add("correct");
@@ -305,9 +299,7 @@ function goToStart(){
     updateRanking();
 }
 
-// 初期表示
 updateRanking();
-
 </script>
 
 </body>
