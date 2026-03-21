@@ -2,42 +2,51 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>架空都市からの脱出</title>
+<title>脱出ゲーム</title>
 
 <style>
 body{
 margin:0;
 font-family:sans-serif;
-background:#cfefff;
+background:#dff6ff;
 }
 
-/* 共通 */
-.hidden{display:none;}
+/* 画面 */
+.screen{
+display:none;
+width:100%;
+height:100vh;
+}
 
-/* ホーム */
 #menu{
+display:block;
 text-align:center;
-padding:20px;
+padding-top:40px;
 }
 
+/* 街ボタン */
 .city{
-width:300px;
-margin:10px auto;
+width:280px;
+margin:15px auto;
 padding:20px;
 background:#4facfe;
 color:white;
 border-radius:10px;
 cursor:pointer;
+font-size:18px;
+}
+
+.city:hover{
+background:#00c6ff;
 }
 
 /* ゲーム */
 #game{
-height:100vh;
-display:none;
 position:relative;
+background:white;
 }
 
-/* 上UI */
+/* 上 */
 #top{
 position:absolute;
 top:10px;
@@ -47,33 +56,20 @@ padding:10px;
 border-radius:10px;
 }
 
-/* マップ */
-#map{
-width:100%;
-height:70%;
-display:flex;
-justify-content:center;
-align-items:center;
-font-size:24px;
-}
-
-/* 操作 */
-#controls{
-position:absolute;
-bottom:130px;
-width:100%;
+/* メイン */
+#main{
 text-align:center;
+margin-top:100px;
 }
 
-/* テキスト */
+/* 下テキスト */
 #text{
 position:absolute;
 bottom:0;
 width:100%;
-height:120px;
 background:black;
 color:white;
-padding:15px;
+padding:20px;
 cursor:pointer;
 }
 </style>
@@ -81,30 +77,26 @@ cursor:pointer;
 
 <body>
 
-<!-- ホーム -->
-<div id="menu">
+<!-- メニュー -->
+<div id="menu" class="screen">
 <h1>5つの街からの脱出</h1>
 
-<p>※街をクリックして開始</p>
-
 <div class="city" onclick="startGame()">静止した住宅街</div>
-<div class="city">（未実装）</div>
-<div class="city">（未実装）</div>
-<div class="city">（未実装）</div>
-<div class="city">（未実装）</div>
+<div class="city">未実装</div>
+<div class="city">未実装</div>
+<div class="city">未実装</div>
+<div class="city">未実装</div>
 </div>
 
 <!-- ゲーム -->
-<div id="game">
+<div id="game" class="screen">
 
 <div id="top">
 <button onclick="goMenu()">戻る</button><br>
 アイテム: <span id="items">なし</span>
 </div>
 
-<div id="map"></div>
-
-<div id="controls"></div>
+<div id="main"></div>
 
 <div id="text" onclick="nextText()">クリックで進む</div>
 
@@ -112,21 +104,24 @@ cursor:pointer;
 
 <script>
 let texts=[];
-let i=0;
-let location="street";
+let index=0;
 let items=[];
+
+/* 画面切替 */
+function show(id){
+document.querySelectorAll(".screen").forEach(e=>e.style.display="none");
+document.getElementById(id).style.display="block";
+}
 
 /* 開始 */
 function startGame(){
-document.getElementById("menu").style.display="none";
-document.getElementById("game").style.display="block";
+show("game");
 
 texts=[
-"ここは誰もいない街…",
-"探索して時間の手がかりを探そう",
-"画面下はテキスト、上は操作できる"
+"誰もいない街に来てしまった",
+"探索して手がかりを探そう"
 ];
-i=0;
+index=0;
 nextText();
 
 showStreet();
@@ -134,19 +129,16 @@ showStreet();
 
 /* テキスト */
 function nextText(){
-if(i < texts.length){
-document.getElementById("text").innerText=texts[i];
-i++;
+if(index < texts.length){
+document.getElementById("text").innerText=texts[index];
+index++;
 }
 }
 
 /* 街 */
 function showStreet(){
-location="street";
-
-document.getElementById("map").innerHTML="住宅街（道）";
-
-document.getElementById("controls").innerHTML=`
+document.getElementById("main").innerHTML=`
+<h2>住宅街</h2>
 <button onclick="enterHouse()">家に入る</button>
 <button onclick="enterShop()">店に入る</button>
 `;
@@ -154,38 +146,30 @@ document.getElementById("controls").innerHTML=`
 
 /* 家 */
 function enterHouse(){
-location="house";
-
-document.getElementById("map").innerHTML="家の中";
-
-document.getElementById("controls").innerHTML=`
-<button onclick="getItem('電池')">机を調べる</button>
-<button onclick="showStreet()">外に出る</button>
+document.getElementById("main").innerHTML=`
+<h2>家</h2>
+<button onclick="getItem()">机を調べる</button>
+<button onclick="showStreet()">戻る</button>
 `;
-
-setText("机の上に何かある");
 }
 
 /* 店 */
 function enterShop(){
-location="shop";
-
-document.getElementById("map").innerHTML="店の中";
-
-document.getElementById("controls").innerHTML=`
+document.getElementById("main").innerHTML=`
+<h2>店</h2>
 <button onclick="hint('3月15日')">カレンダー</button>
-<button onclick="hint('午後3時に外出')">メモ</button>
-<button onclick="solve()">時計を調べる</button>
-<button onclick="showStreet()">外に出る</button>
+<button onclick="hint('午後3時')">メモ</button>
+<button onclick="solve()">時計</button>
+<button onclick="showStreet()">戻る</button>
 `;
 }
 
 /* アイテム */
-function getItem(item){
-if(!items.includes(item)){
-items.push(item);
+function getItem(){
+if(!items.includes("電池")){
+items.push("電池");
 updateItems();
-setText(item+"を入手");
+setText("電池を手に入れた");
 }
 }
 
@@ -198,19 +182,15 @@ function hint(msg){
 setText(msg);
 }
 
-/* 謎 */
+/* 解答 */
 function solve(){
-let ans = prompt("時間は？（数字）");
+let ans=prompt("時間は？");
 
 if(ans==="15"){
-texts=["時計が動いた","出口発見","クリア"];
-i=0;
-nextText();
-
-setTimeout(goMenu,2000);
-
+setText("クリア！");
+setTimeout(goMenu,1500);
 }else{
-setText("違う…");
+setText("違う");
 }
 }
 
@@ -221,8 +201,7 @@ document.getElementById("text").innerText=t;
 
 /* 戻る */
 function goMenu(){
-document.getElementById("game").style.display="none";
-document.getElementById("menu").style.display="block";
+show("menu");
 items=[];
 updateItems();
 }
