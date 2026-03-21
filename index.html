@@ -2,241 +2,138 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>歩ける街 脱出ゲーム</title>
+<title>記憶パズルゲーム</title>
 
 <style>
 body{
-margin:0;
-font-family:sans-serif;
-background:#dff6ff;
-text-align:center;
+    margin:0;
+    font-family:sans-serif;
+    background:#1e1e2f;
+    color:white;
+    text-align:center;
 }
 
-/* ホーム */
-#menu{
-padding:20px;
+h1{
+    margin:20px;
 }
 
-.city{
-width:300px;
-margin:10px auto;
-padding:15px;
-background:#4facfe;
-color:white;
-border-radius:10px;
-cursor:pointer;
-}
-
-/* ゲーム */
 #game{
-display:none;
-}
-
-#info{
-margin:10px;
-}
-
-/* マップ */
-#map{
-display:grid;
-grid-template-columns:repeat(5,60px);
-gap:5px;
-justify-content:center;
-margin-top:20px;
+    display:grid;
+    gap:5px;
+    justify-content:center;
+    margin-top:20px;
 }
 
 .cell{
-width:60px;
-height:60px;
-background:#aee;
-display:flex;
-align-items:center;
-justify-content:center;
-font-size:20px;
+    width:50px;
+    height:50px;
+    background:#444;
+    cursor:pointer;
+    transition:0.2s;
 }
 
-.player{background:#ffcc00;}
-.house{background:#ff9999;}
-.shop{background:#99ff99;}
-
-/* テキスト */
-#text{
-margin-top:15px;
-background:black;
-color:white;
-padding:10px;
+.cell.active{
+    background:#4caf50;
 }
 
-/* ボタン */
+.cell.correct{
+    background:#2196f3;
+}
+
+.cell.wrong{
+    background:#e53935;
+}
+
 button{
-margin:5px;
-padding:8px 15px;
+    margin-top:20px;
+    padding:10px 20px;
+    font-size:16px;
+    cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
-<!-- メニュー -->
-<div id="menu">
-<h1>5つの街からの脱出</h1>
-<p>街を選択してください</p>
-<div class="city" onclick="startGame()">静止した住宅街</div>
-</div>
+<h1>記憶パズル</h1>
+<p id="info">スタートを押してください</p>
+<button onclick="startGame()">スタート</button>
 
-<!-- ゲーム -->
-<div id="game">
-
-<div id="info">
-矢印キーで移動 / 建物の上でEnterで入る
-<button onclick="goMenu()">戻る</button>
-</div>
-
-<div id="map"></div>
-
-<div id="inside"></div>
-
-<div id="text">探索しよう</div>
-
-</div>
+<div id="game"></div>
 
 <script>
-let mapData = [
-["","","H","",""],
-["","","","",""],
-["","P","","S",""],
-["","","","",""],
-["","","","",""]
-];
+let size = 3;
+let pattern = [];
+let player = [];
+let showing = true;
 
-let player = {x:1,y:2};
-let inside = false;
-let items=[];
-
-/* 開始 */
 function startGame(){
-document.getElementById("menu").style.display="none";
-document.getElementById("game").style.display="block";
-drawMap();
+    player = [];
+    pattern = [];
+
+    const game = document.getElementById("game");
+    game.innerHTML = "";
+
+    game.style.gridTemplateColumns = `repeat(${size}, 50px)`;
+
+    for(let i=0;i<size*size;i++){
+        const div = document.createElement("div");
+        div.classList.add("cell");
+
+        div.onclick = () => clickCell(i, div);
+
+        game.appendChild(div);
+    }
+
+    // ランダムパターン生成
+    let count = Math.floor(size*size/3);
+    while(pattern.length < count){
+        let r = Math.floor(Math.random()*size*size);
+        if(!pattern.includes(r)) pattern.push(r);
+    }
+
+    showPattern();
 }
 
-/* マップ描画 */
-function drawMap(){
-let html="";
-for(let y=0;y<5;y++){
-for(let x=0;x<5;x++){
+function showPattern(){
+    showing = true;
+    document.getElementById("info").innerText = "覚えて！";
 
-let cls="cell";
-let content="";
+    const cells = document.querySelectorAll(".cell");
 
-if(player.x===x && player.y===y){
-cls+=" player";
-content="自";
-}else if(mapData[y][x]==="H"){
-cls+=" house";
-content="家";
-}else if(mapData[y][x]==="S"){
-cls+=" shop";
-content="店";
+    pattern.forEach(i => {
+        cells[i].classList.add("active");
+    });
+
+    setTimeout(() => {
+        cells.forEach(c => c.classList.remove("active"));
+        showing = false;
+        document.getElementById("info").innerText = "再現してください";
+    }, 1500 + size*200);
 }
 
-html+=`<div class="${cls}">${content}</div>`;
-}
-}
-document.getElementById("map").innerHTML=html;
-}
+function clickCell(index, div){
+    if(showing) return;
 
-/* 移動 */
-document.addEventListener("keydown",e=>{
-if(inside) return;
+    if(player.includes(index)) return;
 
-if(e.key==="ArrowUp") player.y--;
-if(e.key==="ArrowDown") player.y++;
-if(e.key==="ArrowLeft") player.x--;
-if(e.key==="ArrowRight") player.x++;
+    player.push(index);
+    div.classList.add("correct");
 
-/* 範囲制限 */
-player.x=Math.max(0,Math.min(4,player.x));
-player.y=Math.max(0,Math.min(4,player.y));
+    if(!pattern.includes(index)){
+        div.classList.add("wrong");
+        document.getElementById("info").innerText = "失敗！最初から";
+        size = 3;
+        return;
+    }
 
-drawMap();
+    // クリア判定
+    if(player.length === pattern.length){
+        document.getElementById("info").innerText = "成功！次へ";
 
-/* 入る */
-if(e.key==="Enter"){
-enter();
-}
-});
-
-/* 建物入る */
-function enter(){
-let tile = mapData[player.y][player.x];
-
-if(tile==="H"){
-inside=true;
-document.getElementById("inside").innerHTML=`
-<h3>家の中</h3>
-<button onclick="getItem()">机を調べる</button>
-<button onclick="exit()">出る</button>
-`;
-setText("机に何かある");
-}
-
-if(tile==="S"){
-inside=true;
-document.getElementById("inside").innerHTML=`
-<h3>店の中</h3>
-<button onclick="hint('3月15日')">カレンダー</button>
-<button onclick="hint('午後3時')">メモ</button>
-<button onclick="solve()">時計</button>
-<button onclick="exit()">出る</button>
-`;
-setText("ヒントを探そう");
-}
-}
-
-/* 出る */
-function exit(){
-inside=false;
-document.getElementById("inside").innerHTML="";
-}
-
-/* アイテム */
-function getItem(){
-if(!items.includes("電池")){
-items.push("電池");
-setText("電池を入手");
-}
-}
-
-/* ヒント */
-function hint(t){
-setText(t);
-}
-
-/* 謎 */
-function solve(){
-let ans=prompt("時間は？");
-
-if(ans==="15"){
-setText("脱出成功！");
-setTimeout(goMenu,2000);
-}else{
-setText("違う");
-}
-}
-
-/* テキスト */
-function setText(t){
-document.getElementById("text").innerText=t;
-}
-
-/* 戻る */
-function goMenu(){
-document.getElementById("game").style.display="none";
-document.getElementById("menu").style.display="block";
-player={x:1,y:2};
-items=[];
-exit();
+        size++;
+        setTimeout(startGame, 1000);
+    }
 }
 </script>
 
