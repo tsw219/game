@@ -16,57 +16,63 @@ body{
     height:100vh;
 }
 
-/* 固定コンテナ */
+/* コンテナ固定 */
 #container{
-    text-align:center;
+    position:relative;
     width:360px;
+    height:520px; /* ←固定が超重要 */
 }
 
-/* ルール */
-#rules{
-    font-size:14px;
-    background:rgba(255,255,255,0.08);
-    padding:10px;
-    border-radius:8px;
-    margin:10px 0;
+/* 画面を重ねる */
+.screen{
+    position:absolute;
+    width:100%;
+    height:100%;
+    top:0;
+    left:0;
+
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.3s;
 }
 
-/* ←ガシャ完全防止 */
+.active{
+    opacity:1;
+    pointer-events:auto;
+}
+
+/* ゲーム */
 #game{
     width:350px;
     height:350px;
     margin:0 auto;
-
     display:grid;
     gap:6px;
-    transition:opacity 0.2s;
 }
-
-.fadeOut{opacity:0;}
 
 .cell{
     background:#37474f;
     border-radius:8px;
     cursor:pointer;
-    position:relative;
-    overflow:hidden;
 }
-
-.cell:active{transform:scale(0.9);}
 .cell.active{background:#00e676;}
 .cell.correct{background:#2979ff;}
 .cell.wrong{background:#ff1744;}
 
 #countdown{
     font-size:40px;
-    margin:10px;
+    text-align:center;
 }
 
-/* ランキング */
-#ranking{
-    font-size:14px;
-    color:#ffd54f;
-    text-align:left;
+/* 成功 */
+#successText{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-size:40px;
+    color:#00e676;
+    display:none;
 }
 </style>
 </head>
@@ -75,14 +81,9 @@ body{
 
 <div id="container">
 
-<div id="startScreen">
+<!-- スタート -->
+<div id="startScreen" class="screen active">
 <h1>記憶パズル</h1>
-
-<div id="rules">
-・光った場所を覚える<br>
-・同じ場所をクリック<br>
-・間違えたら終了
-</div>
 
 名前：<input id="nameInput" placeholder="空欄OK"><br>
 <button onclick="startGame()">スタート</button>
@@ -90,30 +91,37 @@ body{
 <div id="ranking"></div>
 </div>
 
-<div id="gameScreen" style="display:none;">
+<!-- ゲーム -->
+<div id="gameScreen" class="screen">
 <h2 id="level"></h2>
 <div id="countdown"></div>
 <div id="game"></div>
 </div>
 
-<div id="gameOver" style="display:none;">
+<!-- 終了 -->
+<div id="gameOver" class="screen">
 <h1>ゲームオーバー</h1>
 <p id="finalScore"></p>
-<button onclick="goToStart()">最初に戻る</button>
+<button onclick="goStart()">戻る</button>
 </div>
+
+<div id="successText">成功！</div>
 
 </div>
 
 <script>
-let size=3,level=1,pattern=[],player=[],showing=true,timer;
+let size=3,level=1,pattern=[],player=[],showing=true;
 let scores=JSON.parse(localStorage.getItem("ranking")||"[]");
 let playerName="";
 
+function showScreen(id){
+ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+ document.getElementById(id).classList.add("active");
+}
+
 function updateRanking(){
- scores=scores.filter(s=>s&&s.name&&s.score);
- let t="🏆 Ranking<br>";
- if(scores.length===0)t+="まだ記録なし";
- else scores.slice(0,5).forEach((s,i)=>t+=`${i+1}. ${s.name}:Lv${s.score}<br>`);
+ let t="🏆<br>";
+ scores.slice(0,5).forEach((s,i)=>t+=`${i+1}.${s.name}:Lv${s.score}<br>`);
  document.getElementById("ranking").innerHTML=t;
  localStorage.setItem("ranking",JSON.stringify(scores));
 }
@@ -124,53 +132,40 @@ function getName(){
   let n=1;while(scores.some(s=>s.name==="Player"+n))n++;
   return"Player"+n;
  }
- if(scores.some(s=>s.name===v)){alert("同じ名前があります");return null;}
+ if(scores.some(s=>s.name===v)){alert("同じ名前");return null;}
  return v;
 }
 
 function startGame(){
- let n=getName();
- if(!n)return;
+ let n=getName(); if(!n)return;
  playerName=n;
-
- document.getElementById("startScreen").style.display="none";
- document.getElementById("gameScreen").style.display="block";
-
- level=1;size=3;
+ showScreen("gameScreen");
+ level=1; size=3;
  updateGame();
 }
 
 function updateGame(){
- const game=document.getElementById("game");
- game.classList.add("fadeOut");
+ player=[];pattern=[];
+ document.getElementById("level").innerText="Level "+level;
 
- setTimeout(()=>{
+ let game=document.getElementById("game");
+ game.innerHTML="";
+ game.style.gridTemplateColumns=`repeat(${size},1fr)`;
 
-  player=[];pattern=[];
-  document.getElementById("level").innerText="Level "+level;
+ for(let i=0;i<size*size;i++){
+  let d=document.createElement("div");
+  d.className="cell";
+  d.onclick=()=>clickCell(i,d);
+  game.appendChild(d);
+ }
 
-  game.innerHTML="";
-  game.style.gridTemplateColumns=`repeat(${size},1fr)`;
-  game.style.gridTemplateRows=`repeat(${size},1fr)`;
+ let count=Math.min(3+Math.floor(level/2),size*size-1);
+ while(pattern.length<count){
+  let r=Math.floor(Math.random()*size*size);
+  if(!pattern.includes(r))pattern.push(r);
+ }
 
-  for(let i=0;i<size*size;i++){
-   let d=document.createElement("div");
-   d.className="cell";
-   d.onclick=()=>clickCell(i,d);
-   game.appendChild(d);
-  }
-
-  let count=Math.min(3+Math.floor(level/2),size*size-1);
-  while(pattern.length<count){
-   let r=Math.floor(Math.random()*size*size);
-   if(!pattern.includes(r))pattern.push(r);
-  }
-
-  game.classList.remove("fadeOut");
-
-  showPattern();
-
- },150);
+ showPattern();
 }
 
 function showPattern(){
@@ -179,18 +174,10 @@ function showPattern(){
 
  pattern.forEach(i=>cells[i].classList.add("active"));
 
- let t=1500,start=Date.now();
- clearInterval(timer);
- timer=setInterval(()=>{
-  let r=Math.max(0,t-(Date.now()-start));
-  document.getElementById("countdown").innerText=(r/1000).toFixed(2);
- },10);
-
  setTimeout(()=>{
   cells.forEach(c=>c.classList.remove("active"));
   showing=false;
-  document.getElementById("countdown").innerText="";
- },t);
+ },1500);
 }
 
 function clickCell(i,d){
@@ -200,34 +187,39 @@ function clickCell(i,d){
  d.classList.add("correct");
 
  if(!pattern.includes(i)){
-  d.classList.add("wrong");
   gameOver();
   return;
  }
 
  if(player.length===pattern.length){
-  level++;
-  if(level%3===0)size=Math.min(size+1,7);
-  setTimeout(updateGame,400);
+  showSuccess();
  }
 }
 
-function gameOver(){
- document.getElementById("gameScreen").style.display="none";
- document.getElementById("gameOver").style.display="block";
+function showSuccess(){
+ let t=document.getElementById("successText");
+ t.style.display="block";
 
- document.getElementById("finalScore").innerText=
-  playerName+" のスコア: Lv "+level;
+ setTimeout(()=>{
+  t.style.display="none";
+  level++;
+  if(level%3===0) size++;
+  updateGame();
+ },600);
+}
+
+function gameOver(){
+ document.getElementById("finalScore").innerText=playerName+" Lv "+level;
 
  scores.push({name:playerName,score:level});
  scores.sort((a,b)=>b.score-a.score);
+
+ showScreen("gameOver");
  updateRanking();
 }
 
-function goToStart(){
- document.getElementById("gameOver").style.display="none";
- document.getElementById("startScreen").style.display="block";
- updateRanking();
+function goStart(){
+ showScreen("startScreen");
 }
 
 updateRanking();
