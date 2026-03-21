@@ -8,7 +8,7 @@
 body{
     margin:0;
     font-family:sans-serif;
-    background:linear-gradient(135deg,#1a1a2e,#16213e);
+    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     color:white;
     display:flex;
     justify-content:center;
@@ -18,6 +18,7 @@ body{
 
 #container{
     text-align:center;
+    width:320px;
 }
 
 h1{
@@ -26,43 +27,42 @@ h1{
 
 #level{
     font-size:20px;
-    margin:10px;
+}
+
+#highscore{
+    font-size:16px;
+    margin-bottom:5px;
+    color:#ffd54f;
 }
 
 #info{
     margin:10px;
-    font-size:18px;
 }
 
 #countdown{
     font-size:28px;
-    margin:10px;
-    color:#ffd54f;
+    color:#00e5ff;
 }
 
 #game{
     display:grid;
     gap:6px;
     justify-content:center;
-    margin-top:15px;
+    margin-top:10px;
 }
 
 .cell{
     width:55px;
     height:55px;
-    background:#394867;
+    background:#37474f;
     border-radius:8px;
     cursor:pointer;
     transition:0.2s;
 }
 
-.cell:hover{
-    transform:scale(1.05);
-}
-
 .cell.active{
-    background:#00c853;
-    box-shadow:0 0 15px #00e676;
+    background:#00e676;
+    box-shadow:0 0 10px #00e676;
 }
 
 .cell.correct{
@@ -70,12 +70,12 @@ h1{
 }
 
 .cell.wrong{
-    background:#d50000;
+    background:#ff1744;
 }
 
 button{
     margin-top:15px;
-    padding:10px 25px;
+    padding:10px 20px;
     font-size:16px;
     border:none;
     border-radius:8px;
@@ -87,6 +87,10 @@ button{
 button:hover{
     background:#ffa726;
 }
+
+#gameOver{
+    display:none;
+}
 </style>
 </head>
 
@@ -94,22 +98,31 @@ button:hover{
 
 <div id="container">
 
+<!-- スタート画面 -->
 <div id="startScreen">
     <h1>記憶パズル</h1>
     <p>
-        光ったマスを覚えてください。<br>
-        その後、同じ場所をクリックして再現します。<br>
-        レベルが上がるほど難しくなります。
+        光ったマスを覚えて再現しよう！<br>
+        レベルが上がるほど難しくなる
     </p>
     <button onclick="startGame()">スタート</button>
 </div>
 
+<!-- ゲーム画面 -->
 <div id="gameScreen" style="display:none;">
     <h1>記憶パズル</h1>
+    <div id="highscore">High Score: 1</div>
     <div id="level">Level 1</div>
     <div id="info">覚えて！</div>
     <div id="countdown"></div>
     <div id="game"></div>
+</div>
+
+<!-- ゲームオーバー -->
+<div id="gameOver">
+    <h1>ゲームオーバー</h1>
+    <p id="finalScore"></p>
+    <button onclick="goToStart()">最初に戻る</button>
 </div>
 
 </div>
@@ -120,20 +133,26 @@ let level = 1;
 let pattern = [];
 let player = [];
 let showing = true;
+let countdownTimer;
+
+let highScore = localStorage.getItem("memoryHighScore") || 1;
+document.getElementById("highscore").innerText = "High Score: " + highScore;
 
 function getShowTime(){
-    // レベル上がっても短くなりすぎない調整
-    return Math.max(2000 - level*80, 1000);
+    // レベルで増えるが上限あり
+    return Math.min(1500 + level*120, 4000);
 }
 
 function startGame(){
     document.getElementById("startScreen").style.display = "none";
+    document.getElementById("gameOver").style.display = "none";
     document.getElementById("gameScreen").style.display = "block";
 
     player = [];
     pattern = [];
 
     document.getElementById("level").innerText = "Level " + level;
+    document.getElementById("highscore").innerText = "High Score: " + highScore;
 
     const game = document.getElementById("game");
     game.innerHTML = "";
@@ -166,14 +185,19 @@ function showPattern(){
     });
 
     let time = getShowTime();
-    let seconds = Math.ceil(time/1000);
-    document.getElementById("countdown").innerText = seconds;
+    let start = Date.now();
 
-    let interval = setInterval(()=>{
-        seconds--;
-        document.getElementById("countdown").innerText = seconds;
-        if(seconds <= 0) clearInterval(interval);
-    },1000);
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(()=>{
+        let elapsed = Date.now() - start;
+        let remaining = Math.max(0, time - elapsed);
+
+        document.getElementById("countdown").innerText = (remaining/1000).toFixed(2);
+
+        if(remaining <= 0){
+            clearInterval(countdownTimer);
+        }
+    }, 10);
 
     setTimeout(() => {
         cells.forEach(c => c.classList.remove("active"));
@@ -192,23 +216,35 @@ function clickCell(index, div){
 
     if(!pattern.includes(index)){
         div.classList.add("wrong");
-        document.getElementById("info").innerText = "失敗！レベル1に戻る";
-
-        level = 1;
-        size = 3;
-
-        setTimeout(startGame,1500);
+        gameOver();
         return;
     }
 
     if(player.length === pattern.length){
-        document.getElementById("info").innerText = "成功！";
-
         level++;
         size = Math.min(3 + Math.floor(level/2), 7);
 
-        setTimeout(startGame,1000);
+        setTimeout(startGame,800);
     }
+}
+
+function gameOver(){
+    document.getElementById("gameScreen").style.display = "none";
+    document.getElementById("gameOver").style.display = "block";
+
+    document.getElementById("finalScore").innerText = "到達レベル: " + level;
+
+    if(level > highScore){
+        highScore = level;
+        localStorage.setItem("memoryHighScore", highScore);
+    }
+}
+
+function goToStart(){
+    level = 1;
+    size = 3;
+    document.getElementById("gameOver").style.display = "none";
+    document.getElementById("startScreen").style.display = "block";
 }
 </script>
 
