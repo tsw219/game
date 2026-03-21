@@ -50,6 +50,7 @@ input{
     margin:10px;
 }
 
+/* マス */
 .cell{
     width:55px;
     height:55px;
@@ -104,20 +105,37 @@ input{
     100%{transform:translate(-50%,-50%) scale(1);}
 }
 
-/* 失敗 */
-.flashRed{ animation:flashRed 0.4s; }
-@keyframes flashRed{
-    0%{background:red;}
-    100%{background:transparent;}
+/* シェイク */
+.shake{
+    animation:shake 0.4s;
 }
-
-.shake{ animation:shake 0.4s; }
 @keyframes shake{
     0%{transform:translate(0);}
     25%{transform:translate(-5px,5px);}
     50%{transform:translate(5px,-5px);}
     75%{transform:translate(-5px,5px);}
     100%{transform:translate(0);}
+}
+
+/* 赤フラッシュ（安全版） */
+#flashOverlay{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:red;
+    opacity:0;
+    pointer-events:none;
+}
+
+.flashRed{
+    animation:flashRed 0.4s;
+}
+
+@keyframes flashRed{
+    0%{opacity:0.5;}
+    100%{opacity:0;}
 }
 
 /* パーティクル */
@@ -148,9 +166,11 @@ button{
 
 <body>
 
+<div id="flashOverlay"></div>
+
 <div id="container">
 
-<!-- スタート画面 -->
+<!-- スタート -->
 <div id="startScreen">
     <h1>記憶パズル</h1>
 
@@ -176,7 +196,7 @@ button{
     <div id="game"></div>
 </div>
 
-<!-- ゲームオーバー -->
+<!-- 終了 -->
 <div id="gameOver" style="display:none;">
     <h1>ゲームオーバー</h1>
     <p id="finalScore"></p>
@@ -191,23 +211,40 @@ button{
 let size=3, level=1, pattern=[], player=[], showing=true, countdownTimer;
 let scores = JSON.parse(localStorage.getItem("ranking")||"[]");
 
-function playSound(freq,time){
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    const o=ctx.createOscillator(), g=ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.frequency.value=freq; o.start();
-    g.gain.setValueAtTime(0.2,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+time);
-    o.stop(ctx.currentTime+time);
+let audioCtx;
+
+// 音初期化
+function initAudio(){
+    if(!audioCtx){
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
 }
 
+// 音再生
+function playSound(freq,time){
+    if(!audioCtx) return;
+
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+
+    o.connect(g);
+    g.connect(audioCtx.destination);
+
+    o.frequency.value = freq;
+    o.start();
+
+    g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + time);
+
+    o.stop(audioCtx.currentTime + time);
+}
+
+// ランキング
 function updateRanking(){
     scores = scores.filter(s=>s && s.name && s.score);
     let t="🏆 Ranking<br>";
-    if(scores.length===0){ t+="まだ記録なし"; }
-    else{
-        scores.slice(0,5).forEach((s,i)=>t+=`${i+1}. ${s.name}:Lv${s.score}<br>`);
-    }
+    if(scores.length===0) t+="まだ記録なし";
+    else scores.slice(0,5).forEach((s,i)=>t+=`${i+1}. ${s.name}:Lv${s.score}<br>`);
     document.getElementById("ranking").innerHTML=t;
     localStorage.setItem("ranking",JSON.stringify(scores));
 }
@@ -235,6 +272,8 @@ function saveScore(name,score){
 let playerName="";
 
 function startGame(){
+    initAudio(); // ★これで音バグ解消
+
     let name=getPlayerName();
     if(!name) return;
     playerName=name;
@@ -318,8 +357,15 @@ function clickCell(i,div,e){
         div.classList.add("wrong");
         playSound(150,0.3);
 
-        document.body.classList.add("shake","flashRed");
-        setTimeout(()=>document.body.classList.remove("shake","flashRed"),400);
+        document.body.classList.add("shake");
+
+        const overlay=document.getElementById("flashOverlay");
+        overlay.classList.add("flashRed");
+
+        setTimeout(()=>{
+            document.body.classList.remove("shake");
+            overlay.classList.remove("flashRed");
+        },400);
 
         gameOver();
         return;
