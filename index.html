@@ -14,6 +14,7 @@ body{
     justify-content:center;
     align-items:center;
     height:100vh;
+    overflow:hidden;
 }
 
 #container{
@@ -30,21 +31,45 @@ body{
 
 input{
     padding:5px;
-    margin-top:5px;
     width:150px;
 }
 
+#countdown{
+    font-size:42px;
+    color:#00e5ff;
+    margin:10px;
+}
+
+/* マス */
 .cell{
     width:55px;
     height:55px;
     background:#37474f;
     border-radius:8px;
     cursor:pointer;
-    transition:0.1s;
+    position:relative;
+    overflow:hidden;
 }
 
+/* 押した感触 */
 .cell:active{
     transform:scale(0.9);
+}
+
+/* 波紋 */
+.ripple{
+    position:absolute;
+    border-radius:50%;
+    background:rgba(255,255,255,0.5);
+    transform:scale(0);
+    animation:ripple 0.5s linear;
+}
+
+@keyframes ripple{
+    to{
+        transform:scale(4);
+        opacity:0;
+    }
 }
 
 .cell.active{ background:#00e676; }
@@ -57,20 +82,62 @@ input{
     justify-content:center;
 }
 
-#countdown{
-    font-size:40px; /* ← 大きくした */
-    color:#00e5ff;
-    margin:10px;
-}
-
+/* 成功 */
 #successText{
     position:absolute;
     top:50%;
     left:50%;
     transform:translate(-50%,-50%);
-    font-size:40px;
+    font-size:45px;
     color:#00e676;
     display:none;
+    animation:pop 0.6s;
+}
+
+@keyframes pop{
+    0%{transform:translate(-50%,-50%) scale(0.5);}
+    100%{transform:translate(-50%,-50%) scale(1);}
+}
+
+/* 失敗フラッシュ */
+.flashRed{
+    animation:flashRed 0.4s;
+}
+
+@keyframes flashRed{
+    0%{background:red;}
+    100%{background:transparent;}
+}
+
+/* 画面シェイク */
+.shake{
+    animation:shake 0.4s;
+}
+
+@keyframes shake{
+    0%{transform:translate(0);}
+    25%{transform:translate(-5px,5px);}
+    50%{transform:translate(5px,-5px);}
+    75%{transform:translate(-5px,5px);}
+    100%{transform:translate(0);}
+}
+
+/* パーティクル */
+.particle{
+    position:absolute;
+    width:6px;
+    height:6px;
+    background:#00e676;
+    border-radius:50%;
+    pointer-events:none;
+    animation:particle 0.6s linear;
+}
+
+@keyframes particle{
+    to{
+        transform:translate(var(--x), var(--y));
+        opacity:0;
+    }
 }
 
 button{
@@ -87,13 +154,8 @@ button{
 
 <div id="startScreen">
     <h1>記憶パズル</h1>
-
-    名前：<input id="nameInput" placeholder="空欄OK">
-    <div style="font-size:12px;">※空欄なら自動でPlayer名</div>
-
-    <br>
+    名前：<input id="nameInput" placeholder="空欄OK"><br>
     <button onclick="startGame()">スタート</button>
-
     <div id="ranking"></div>
 </div>
 
@@ -115,106 +177,80 @@ button{
 </div>
 
 <script>
-let size = 3;
-let level = 1;
-let pattern = [];
-let player = [];
-let showing = true;
-let countdownTimer;
+let size=3, level=1, pattern=[], player=[], showing=true, countdownTimer;
+let scores = JSON.parse(localStorage.getItem("ranking")||"[]");
 
-let scores = JSON.parse(localStorage.getItem("ranking") || "[]");
-
-// 音
-function playSound(freq, time){
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = freq;
-    osc.start();
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + time);
-    osc.stop(ctx.currentTime + time);
+function playSound(freq,time){
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value=freq; o.start();
+    g.gain.setValueAtTime(0.2,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+time);
+    o.stop(ctx.currentTime+time);
 }
 
-// ランキング表示
 function updateRanking(){
-    let text = "🏆 Ranking<br>";
-    scores.slice(0,5).forEach((s,i)=>{
-        text += `${i+1}. ${s.name} : Lv ${s.score}<br>`;
-    });
-    document.getElementById("ranking").innerHTML = text;
+    scores = scores.filter(s=>s && s.name && s.score);
+    let t="🏆 Ranking<br>";
+    scores.slice(0,5).forEach((s,i)=>t+=`${i+1}. ${s.name}:Lv${s.score}<br>`);
+    document.getElementById("ranking").innerHTML=t;
+    localStorage.setItem("ranking",JSON.stringify(scores));
 }
 
-// 名前取得（完全修正版）
 function getPlayerName(){
-    let input = document.getElementById("nameInput").value.trim();
-
-    // 空欄なら確実にPlayer番号生成
-    if(input === ""){
-        let num = 1;
-        while(scores.some(s => s.name === "Player" + num)){
-            num++;
-        }
-        return "Player" + num;
+    let input=document.getElementById("nameInput").value.trim();
+    if(input===""){
+        let n=1;
+        while(scores.some(s=>s.name==="Player"+n)) n++;
+        return "Player"+n;
     }
-
-    // 同名チェック
-    if(scores.some(s => s.name === input)){
+    if(scores.some(s=>s.name===input)){
         alert("同じ名前があります！");
         return null;
     }
-
     return input;
 }
 
-function saveScore(name, score){
-    scores.push({name, score});
+function saveScore(name,score){
+    scores.push({name,score});
     scores.sort((a,b)=>b.score-a.score);
-    localStorage.setItem("ranking", JSON.stringify(scores));
+    localStorage.setItem("ranking",JSON.stringify(scores));
 }
 
-// ===== ゲーム =====
-
-let playerName = "";
+let playerName="";
 
 function startGame(){
-    let name = getPlayerName();
-    if(name === null) return;
-
-    playerName = name;
+    let name=getPlayerName();
+    if(!name) return;
+    playerName=name;
 
     document.getElementById("startScreen").style.display="none";
     document.getElementById("gameScreen").style.display="block";
 
-    level = 1;
-    size = 3;
-
+    level=1; size=3;
     updateGame();
 }
 
 function updateGame(){
-    player = [];
-    pattern = [];
+    player=[]; pattern=[];
+    document.getElementById("level").innerText="Level "+level;
+    document.getElementById("info").innerText="覚えて！";
 
-    document.getElementById("level").innerText = "Level " + level;
-    document.getElementById("info").innerText = "覚えて！";
-
-    const game = document.getElementById("game");
-    game.innerHTML = "";
-    game.style.gridTemplateColumns = `repeat(${size},55px)`;
+    const game=document.getElementById("game");
+    game.innerHTML="";
+    game.style.gridTemplateColumns=`repeat(${size},55px)`;
 
     for(let i=0;i<size*size;i++){
-        const div = document.createElement("div");
-        div.classList.add("cell");
-        div.onclick = ()=>clickCell(i,div);
-        game.appendChild(div);
+        const d=document.createElement("div");
+        d.className="cell";
+        d.onclick=(e)=>clickCell(i,d,e);
+        game.appendChild(d);
     }
 
-    let count = Math.min(3 + Math.floor(level/2), size*size-1);
-    while(pattern.length < count){
-        let r = Math.floor(Math.random()*size*size);
+    let count=Math.min(3+Math.floor(level/2),size*size-1);
+    while(pattern.length<count){
+        let r=Math.floor(Math.random()*size*size);
         if(!pattern.includes(r)) pattern.push(r);
     }
 
@@ -222,17 +258,17 @@ function updateGame(){
 }
 
 function showPattern(){
-    showing = true;
-    const cells = document.querySelectorAll(".cell");
+    showing=true;
+    const cells=document.querySelectorAll(".cell");
 
     pattern.forEach(i=>cells[i].classList.add("active"));
 
-    let time = Math.min(1800 + level*80, 3500);
-    let start = Date.now();
+    let time=Math.min(1800+level*80,3500);
+    let start=Date.now();
 
     clearInterval(countdownTimer);
-    countdownTimer = setInterval(()=>{
-        let remain = Math.max(0, time-(Date.now()-start));
+    countdownTimer=setInterval(()=>{
+        let remain=Math.max(0,time-(Date.now()-start));
         document.getElementById("countdown").innerText=(remain/1000).toFixed(2);
     },10);
 
@@ -244,10 +280,21 @@ function showPattern(){
     },time);
 }
 
-function clickCell(i,div){
+function rippleEffect(div,e){
+    const r=document.createElement("span");
+    r.className="ripple";
+    const rect=div.getBoundingClientRect();
+    r.style.left=(e.clientX-rect.left)+"px";
+    r.style.top=(e.clientY-rect.top)+"px";
+    div.appendChild(r);
+    setTimeout(()=>r.remove(),500);
+}
+
+function clickCell(i,div,e){
     if(showing) return;
     if(player.includes(i)) return;
 
+    rippleEffect(div,e);
     playSound(400,0.1);
 
     player.push(i);
@@ -256,28 +303,42 @@ function clickCell(i,div){
     if(!pattern.includes(i)){
         div.classList.add("wrong");
         playSound(150,0.3);
+
+        document.body.classList.add("shake","flashRed");
+        setTimeout(()=>document.body.classList.remove("shake","flashRed"),400);
+
         gameOver();
         return;
     }
 
-    if(player.length === pattern.length){
+    if(player.length===pattern.length){
         success();
+    }
+}
+
+function createParticles(){
+    for(let i=0;i<20;i++){
+        const p=document.createElement("div");
+        p.className="particle";
+        p.style.left="50%";
+        p.style.top="50%";
+        p.style.setProperty("--x",(Math.random()*200-100)+"px");
+        p.style.setProperty("--y",(Math.random()*200-100)+"px");
+        document.body.appendChild(p);
+        setTimeout(()=>p.remove(),600);
     }
 }
 
 function success(){
     playSound(800,0.2);
+    createParticles();
 
-    const text = document.getElementById("successText");
-    text.style.display="block";
-
-    setTimeout(()=>{ text.style.display="none"; },600);
+    const t=document.getElementById("successText");
+    t.style.display="block";
+    setTimeout(()=>t.style.display="none",600);
 
     level++;
-
-    if(level % 3 === 0){
-        size = Math.min(size+1,7);
-    }
+    if(level%3===0) size=Math.min(size+1,7);
 
     setTimeout(updateGame,800);
 }
@@ -286,10 +347,10 @@ function gameOver(){
     document.getElementById("gameScreen").style.display="none";
     document.getElementById("gameOver").style.display="block";
 
-    document.getElementById("finalScore").innerText =
-        playerName + " のスコア: Lv " + level;
+    document.getElementById("finalScore").innerText=
+        playerName+" のスコア: Lv "+level;
 
-    saveScore(playerName, level);
+    saveScore(playerName,level);
     updateRanking();
 }
 
