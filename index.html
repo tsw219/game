@@ -20,7 +20,7 @@ body{
 #container{
     text-align:center;
     width:360px;
-    will-change: transform; /* ←安定化 */
+    will-change: transform;
 }
 
 /* ルール */
@@ -36,13 +36,7 @@ body{
 #ranking{
     font-size:14px;
     color:#ffd54f;
-    margin-top:10px;
     text-align:left;
-}
-
-input{
-    padding:5px;
-    width:150px;
 }
 
 #countdown{
@@ -50,6 +44,17 @@ input{
     color:#00e5ff;
     margin:10px;
 }
+
+/* グリッド */
+#game{
+    display:grid;
+    gap:6px;
+    justify-content:center;
+    transition:opacity 0.2s;
+}
+
+.fadeOut{opacity:0;}
+.fadeIn{opacity:1;}
 
 .cell{
     width:55px;
@@ -61,9 +66,11 @@ input{
     overflow:hidden;
 }
 
-.cell:active{
-    transform:scale(0.9);
-}
+.cell:active{ transform:scale(0.9); }
+
+.cell.active{ background:#00e676; }
+.cell.correct{ background:#2979ff; }
+.cell.wrong{ background:#ff1744; }
 
 /* 波紋 */
 .ripple{
@@ -73,19 +80,8 @@ input{
     transform:scale(0);
     animation:ripple 0.5s linear;
 }
-
 @keyframes ripple{
-    to{ transform:scale(4); opacity:0; }
-}
-
-.cell.active{ background:#00e676; }
-.cell.correct{ background:#2979ff; }
-.cell.wrong{ background:#ff1744; }
-
-#game{
-    display:grid;
-    gap:6px;
-    justify-content:center;
+    to{transform:scale(4);opacity:0;}
 }
 
 /* 成功 */
@@ -99,17 +95,13 @@ input{
     display:none;
     animation:pop 0.6s;
 }
-
 @keyframes pop{
     0%{transform:translate(-50%,-50%) scale(0.5);}
     100%{transform:translate(-50%,-50%) scale(1);}
 }
 
-/* シェイク（containerに適用） */
-.shake{
-    animation:shake 0.4s;
-}
-
+/* シェイク */
+.shake{animation:shake 0.4s;}
 @keyframes shake{
     0%{transform:translate(0);}
     25%{transform:translate(-5px,5px);}
@@ -118,22 +110,16 @@ input{
     100%{transform:translate(0);}
 }
 
-/* 赤フラッシュ */
+/* フラッシュ */
 #flashOverlay{
     position:fixed;
-    top:0;
-    left:0;
     width:100%;
     height:100%;
     background:red;
     opacity:0;
     pointer-events:none;
 }
-
-.flashRed{
-    animation:flashRed 0.4s;
-}
-
+.flashRed{animation:flashRed 0.4s;}
 @keyframes flashRed{
     0%{opacity:0.5;}
     100%{opacity:0;}
@@ -146,22 +132,13 @@ input{
     height:6px;
     background:#00e676;
     border-radius:50%;
-    pointer-events:none;
     animation:particle 0.6s linear;
 }
-
 @keyframes particle{
-    to{
-        transform:translate(var(--x), var(--y));
-        opacity:0;
-    }
+    to{transform:translate(var(--x),var(--y));opacity:0;}
 }
 
-button{
-    margin-top:10px;
-    padding:8px 15px;
-    cursor:pointer;
-}
+button{margin-top:10px;padding:8px 15px;cursor:pointer;}
 </style>
 </head>
 
@@ -171,37 +148,32 @@ button{
 
 <div id="container">
 
-<!-- スタート -->
 <div id="startScreen">
-    <h1>記憶パズル</h1>
+<h1>記憶パズル</h1>
 
-    <div id="rules">
-    【ルール】<br>
-    ・光ったマスを覚える<br>
-    ・消えた後に同じ場所をクリック<br>
-    ・レベルが上がると難しくなる<br>
-    ・間違えるとゲームオーバー
-    </div>
-
-    名前：<input id="nameInput" placeholder="空欄OK"><br>
-    <button onclick="startGame()">スタート</button>
-
-    <div id="ranking"></div>
+<div id="rules">
+・光ったマスを覚える<br>
+・同じ場所をクリック<br>
+・間違えたら終了
 </div>
 
-<!-- ゲーム -->
+名前：<input id="nameInput" placeholder="空欄OK"><br>
+<button onclick="startGame()">スタート</button>
+
+<div id="ranking"></div>
+</div>
+
 <div id="gameScreen" style="display:none;">
-    <h2 id="level"></h2>
-    <div id="info"></div>
-    <div id="countdown"></div>
-    <div id="game"></div>
+<h2 id="level"></h2>
+<div id="info"></div>
+<div id="countdown"></div>
+<div id="game"></div>
 </div>
 
-<!-- 終了 -->
 <div id="gameOver" style="display:none;">
-    <h1>ゲームオーバー</h1>
-    <p id="finalScore"></p>
-    <button onclick="goToStart()">最初に戻る</button>
+<h1>ゲームオーバー</h1>
+<p id="finalScore"></p>
+<button onclick="goToStart()">最初に戻る</button>
 </div>
 
 <div id="successText">成功！</div>
@@ -209,217 +181,168 @@ button{
 </div>
 
 <script>
-let size=3, level=1, pattern=[], player=[], showing=true, countdownTimer;
-let scores = JSON.parse(localStorage.getItem("ranking")||"[]");
-
+let size=3,level=1,pattern=[],player=[],showing=true,timer;
+let scores=JSON.parse(localStorage.getItem("ranking")||"[]");
 let audioCtx;
 
-// 音初期化
 function initAudio(){
-    if(!audioCtx){
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
+ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
 }
 
-// 音再生
-function playSound(freq,time){
-    if(!audioCtx) return;
-
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-
-    o.connect(g);
-    g.connect(audioCtx.destination);
-
-    o.frequency.value = freq;
-    o.start();
-
-    g.gain.setValueAtTime(0.2, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + time);
-
-    o.stop(audioCtx.currentTime + time);
+function playSound(f,t){
+ if(!audioCtx)return;
+ let o=audioCtx.createOscillator(),g=audioCtx.createGain();
+ o.connect(g);g.connect(audioCtx.destination);
+ o.frequency.value=f;o.start();
+ g.gain.setValueAtTime(0.2,audioCtx.currentTime);
+ g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+t);
+ o.stop(audioCtx.currentTime+t);
 }
 
-// ランキング
 function updateRanking(){
-    scores = scores.filter(s=>s && s.name && s.score);
-    let t="🏆 Ranking<br>";
-    if(scores.length===0) t+="まだ記録なし";
-    else scores.slice(0,5).forEach((s,i)=>t+=`${i+1}. ${s.name}:Lv${s.score}<br>`);
-    document.getElementById("ranking").innerHTML=t;
-    localStorage.setItem("ranking",JSON.stringify(scores));
+ scores=scores.filter(s=>s&&s.name&&s.score);
+ let t="🏆<br>";
+ scores.slice(0,5).forEach((s,i)=>t+=`${i+1}.${s.name}:Lv${s.score}<br>`);
+ document.getElementById("ranking").innerHTML=t||"なし";
+ localStorage.setItem("ranking",JSON.stringify(scores));
 }
 
-function getPlayerName(){
-    let input=document.getElementById("nameInput").value.trim();
-    if(input===""){
-        let n=1;
-        while(scores.some(s=>s.name==="Player"+n)) n++;
-        return "Player"+n;
-    }
-    if(scores.some(s=>s.name===input)){
-        alert("同じ名前があります！");
-        return null;
-    }
-    return input;
+function getName(){
+ let v=document.getElementById("nameInput").value.trim();
+ if(v===""){
+  let n=1;while(scores.some(s=>s.name==="Player"+n))n++;
+  return"Player"+n;
+ }
+ if(scores.some(s=>s.name===v)){alert("同名あり");return null;}
+ return v;
 }
-
-function saveScore(name,score){
-    scores.push({name,score});
-    scores.sort((a,b)=>b.score-a.score);
-    localStorage.setItem("ranking",JSON.stringify(scores));
-}
-
-let playerName="";
 
 function startGame(){
-    initAudio();
-
-    let name=getPlayerName();
-    if(!name) return;
-    playerName=name;
-
-    document.getElementById("startScreen").style.display="none";
-    document.getElementById("gameScreen").style.display="block";
-
-    level=1; size=3;
-    updateGame();
+ initAudio();
+ let n=getName();if(!n)return;
+ name=n;
+ document.getElementById("startScreen").style.display="none";
+ document.getElementById("gameScreen").style.display="block";
+ level=1;size=3;
+ updateGame();
 }
 
 function updateGame(){
-    player=[]; pattern=[];
-    document.getElementById("level").innerText="Level "+level;
-    document.getElementById("info").innerText="覚えて！";
+ const game=document.getElementById("game");
+ game.classList.add("fadeOut");
 
-    const game=document.getElementById("game");
-    game.innerHTML="";
-    game.style.gridTemplateColumns=`repeat(${size},55px)`;
+ setTimeout(()=>{
+  player=[];pattern=[];
+  document.getElementById("level").innerText="Level "+level;
+  document.getElementById("info").innerText="覚えて！";
 
-    for(let i=0;i<size*size;i++){
-        const d=document.createElement("div");
-        d.className="cell";
-        d.onclick=(e)=>clickCell(i,d,e);
-        game.appendChild(d);
-    }
+  game.innerHTML="";
+  game.style.gridTemplateColumns=`repeat(${size},55px)`;
 
-    let count=Math.min(3+Math.floor(level/2),size*size-1);
-    while(pattern.length<count){
-        let r=Math.floor(Math.random()*size*size);
-        if(!pattern.includes(r)) pattern.push(r);
-    }
+  for(let i=0;i<size*size;i++){
+   let d=document.createElement("div");
+   d.className="cell";
+   d.onclick=e=>clickCell(i,d,e);
+   game.appendChild(d);
+  }
 
-    showPattern();
+  let count=Math.min(3+Math.floor(level/2),size*size-1);
+  while(pattern.length<count){
+   let r=Math.floor(Math.random()*size*size);
+   if(!pattern.includes(r))pattern.push(r);
+  }
+
+  game.classList.remove("fadeOut");
+  showPattern();
+
+ },200);
 }
 
 function showPattern(){
-    showing=true;
-    const cells=document.querySelectorAll(".cell");
+ showing=true;
+ let cells=document.querySelectorAll(".cell");
+ pattern.forEach(i=>cells[i].classList.add("active"));
 
-    pattern.forEach(i=>cells[i].classList.add("active"));
+ let t=Math.min(1800+level*80,3500),s=Date.now();
+ clearInterval(timer);
+ timer=setInterval(()=>{
+  let r=Math.max(0,t-(Date.now()-s));
+  document.getElementById("countdown").innerText=(r/1000).toFixed(2);
+ },10);
 
-    let time=Math.min(1800+level*80,3500);
-    let start=Date.now();
-
-    clearInterval(countdownTimer);
-    countdownTimer=setInterval(()=>{
-        let remain=Math.max(0,time-(Date.now()-start));
-        document.getElementById("countdown").innerText=(remain/1000).toFixed(2);
-    },10);
-
-    setTimeout(()=>{
-        cells.forEach(c=>c.classList.remove("active"));
-        showing=false;
-        document.getElementById("info").innerText="再現してください";
-        document.getElementById("countdown").innerText="";
-    },time);
+ setTimeout(()=>{
+  cells.forEach(c=>c.classList.remove("active"));
+  showing=false;
+  document.getElementById("info").innerText="再現してください";
+  document.getElementById("countdown").innerText="";
+ },t);
 }
 
-function rippleEffect(div,e){
-    const r=document.createElement("span");
-    r.className="ripple";
-    const rect=div.getBoundingClientRect();
-    r.style.left=(e.clientX-rect.left)+"px";
-    r.style.top=(e.clientY-rect.top)+"px";
-    div.appendChild(r);
-    setTimeout(()=>r.remove(),500);
+function ripple(div,e){
+ let r=document.createElement("span");
+ r.className="ripple";
+ let rect=div.getBoundingClientRect();
+ r.style.left=(e.clientX-rect.left)+"px";
+ r.style.top=(e.clientY-rect.top)+"px";
+ div.appendChild(r);
+ setTimeout(()=>r.remove(),500);
 }
 
-function clickCell(i,div,e){
-    if(showing) return;
-    if(player.includes(i)) return;
+function clickCell(i,d,e){
+ if(showing||player.includes(i))return;
+ ripple(d,e);playSound(400,0.1);
+ player.push(i);d.classList.add("correct");
 
-    rippleEffect(div,e);
-    playSound(400,0.1);
+ if(!pattern.includes(i)){
+  d.classList.add("wrong");playSound(150,0.3);
 
-    player.push(i);
-    div.classList.add("correct");
+  let c=document.getElementById("container");
+  c.classList.add("shake");
+  let o=document.getElementById("flashOverlay");
+  o.classList.add("flashRed");
 
-    if(!pattern.includes(i)){
-        div.classList.add("wrong");
-        playSound(150,0.3);
+  setTimeout(()=>{c.classList.remove("shake");o.classList.remove("flashRed");},400);
+  gameOver();return;
+ }
 
-        const container=document.getElementById("container");
-        container.classList.add("shake");
-
-        const overlay=document.getElementById("flashOverlay");
-        overlay.classList.add("flashRed");
-
-        setTimeout(()=>{
-            container.classList.remove("shake");
-            overlay.classList.remove("flashRed");
-        },400);
-
-        gameOver();
-        return;
-    }
-
-    if(player.length===pattern.length){
-        success();
-    }
+ if(player.length===pattern.length)success();
 }
 
-function createParticles(){
-    for(let i=0;i<20;i++){
-        const p=document.createElement("div");
-        p.className="particle";
-        p.style.left="50%";
-        p.style.top="50%";
-        p.style.setProperty("--x",(Math.random()*200-100)+"px");
-        p.style.setProperty("--y",(Math.random()*200-100)+"px");
-        document.body.appendChild(p);
-        setTimeout(()=>p.remove(),600);
-    }
+function particles(){
+ for(let i=0;i<20;i++){
+  let p=document.createElement("div");
+  p.className="particle";
+  p.style.left="50%";p.style.top="50%";
+  p.style.setProperty("--x",(Math.random()*200-100)+"px");
+  p.style.setProperty("--y",(Math.random()*200-100)+"px");
+  document.body.appendChild(p);
+  setTimeout(()=>p.remove(),600);
+ }
 }
 
 function success(){
-    playSound(800,0.2);
-    createParticles();
+ playSound(800,0.2);particles();
+ let t=document.getElementById("successText");
+ t.style.display="block";
+ setTimeout(()=>t.style.display="none",600);
 
-    const t=document.getElementById("successText");
-    t.style.display="block";
-    setTimeout(()=>t.style.display="none",600);
-
-    level++;
-    if(level%3===0) size=Math.min(size+1,7);
-
-    setTimeout(updateGame,800);
+ level++;if(level%3===0)size=Math.min(size+1,7);
+ setTimeout(updateGame,600);
 }
 
 function gameOver(){
-    document.getElementById("gameScreen").style.display="none";
-    document.getElementById("gameOver").style.display="block";
+ document.getElementById("gameScreen").style.display="none";
+ document.getElementById("gameOver").style.display="block";
+ document.getElementById("finalScore").innerText=name+" Lv "+level;
 
-    document.getElementById("finalScore").innerText=
-        playerName+" のスコア: Lv "+level;
-
-    saveScore(playerName,level);
-    updateRanking();
+ scores.push({name,score:level});
+ scores.sort((a,b)=>b.score-a.score);
+ updateRanking();
 }
 
 function goToStart(){
-    document.getElementById("gameOver").style.display="none";
-    document.getElementById("startScreen").style.display="block";
-    updateRanking();
+ document.getElementById("gameOver").style.display="none";
+ document.getElementById("startScreen").style.display="block";
 }
 
 updateRanking();
