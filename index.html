@@ -18,17 +18,12 @@ body{
 
 #container{
     text-align:center;
-    width:320px;
+    width:340px;
 }
 
 h1{ margin-bottom:10px; }
 
 #level{ font-size:20px; }
-
-#highscore{
-    font-size:16px;
-    color:#ffd54f;
-}
 
 #info{
     margin:10px;
@@ -40,11 +35,18 @@ h1{ margin-bottom:10px; }
     color:#00e5ff;
 }
 
+#ranking{
+    font-size:14px;
+    color:#ffd54f;
+    margin-bottom:10px;
+}
+
 #game{
     display:grid;
     gap:6px;
     justify-content:center;
     margin-top:10px;
+    transition:0.3s;
 }
 
 .cell{
@@ -69,14 +71,31 @@ h1{ margin-bottom:10px; }
     background:#ff1744;
 }
 
-.successFlash{
-    animation:flash 0.6s;
+/* 成功演出 */
+.flash{
+    animation:flash 0.4s;
 }
 
 @keyframes flash{
     0%{transform:scale(1);}
-    50%{transform:scale(1.1);}
+    50%{transform:scale(1.15);}
     100%{transform:scale(1);}
+}
+
+#successText{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-size:40px;
+    color:#00e676;
+    display:none;
+    animation:pop 0.6s;
+}
+
+@keyframes pop{
+    0%{transform:translate(-50%,-50%) scale(0.5);}
+    100%{transform:translate(-50%,-50%) scale(1);}
 }
 
 button{
@@ -106,7 +125,7 @@ button{
 
 <div id="gameScreen" style="display:none;">
     <h1>記憶パズル</h1>
-    <div id="highscore"></div>
+    <div id="ranking"></div>
     <div id="level"></div>
     <div id="info"></div>
     <div id="countdown"></div>
@@ -119,6 +138,8 @@ button{
     <button onclick="goToStart()">最初に戻る</button>
 </div>
 
+<div id="successText">成功！</div>
+
 </div>
 
 <script>
@@ -129,15 +150,33 @@ let player = [];
 let showing = true;
 let countdownTimer;
 
-let highScore = localStorage.getItem("memoryHighScore") || 1;
+// 🎵 音
+const clickSound = new Audio("https://cdn.jsdelivr.net/gh/jshawl/AudioFX/sounds/click1.mp3");
+const successSound = new Audio("https://cdn.jsdelivr.net/gh/jshawl/AudioFX/sounds/bling1.mp3");
+const failSound = new Audio("https://cdn.jsdelivr.net/gh/jshawl/AudioFX/sounds/error1.mp3");
+
+// 🏆 ランキング
+let scores = JSON.parse(localStorage.getItem("ranking") || "[]");
+
+function updateRanking(){
+    let text = "🏆 Ranking<br>";
+    scores.slice(0,5).forEach((s,i)=>{
+        text += `${i+1}. Lv ${s}<br>`;
+    });
+    document.getElementById("ranking").innerHTML = text;
+}
+
+function saveScore(score){
+    scores.push(score);
+    scores.sort((a,b)=>b-a);
+    localStorage.setItem("ranking", JSON.stringify(scores));
+}
 
 function getShowTime(){
-    // ゆるやかに増える（急に難しくならない）
     return Math.min(1800 + level*80, 3500);
 }
 
 function getPatternCount(){
-    // 少しずつ増える
     return Math.min(3 + Math.floor(level/2), size*size-1);
 }
 
@@ -146,11 +185,12 @@ function startGame(){
     document.getElementById("gameOver").style.display = "none";
     document.getElementById("gameScreen").style.display = "block";
 
+    updateRanking();
+
     player = [];
     pattern = [];
 
     document.getElementById("level").innerText = "Level " + level;
-    document.getElementById("highscore").innerText = "High Score: " + highScore;
     document.getElementById("info").innerText = "覚えて！";
 
     const game = document.getElementById("game");
@@ -201,11 +241,15 @@ function clickCell(index, div){
     if(showing) return;
     if(player.includes(index)) return;
 
+    clickSound.currentTime = 0;
+    clickSound.play();
+
     player.push(index);
     div.classList.add("correct");
 
     if(!pattern.includes(index)){
         div.classList.add("wrong");
+        failSound.play();
         gameOver();
         return;
     }
@@ -218,19 +262,27 @@ function clickCell(index, div){
 function success(){
     document.getElementById("info").innerText = "成功！";
 
-    document.getElementById("game").classList.add("successFlash");
+    // 音
+    successSound.play();
+
+    // 演出
+    document.getElementById("game").classList.add("flash");
+
+    const text = document.getElementById("successText");
+    text.style.display = "block";
+
+    setTimeout(()=>{
+        text.style.display = "none";
+        document.getElementById("game").classList.remove("flash");
+    },600);
 
     level++;
 
-    // マスはゆっくり増やす
     if(level % 3 === 0){
         size = Math.min(size+1, 7);
     }
 
-    setTimeout(()=>{
-        document.getElementById("game").classList.remove("successFlash");
-        startGame();
-    },1000);
+    setTimeout(startGame,900);
 }
 
 function gameOver(){
@@ -239,10 +291,7 @@ function gameOver(){
 
     document.getElementById("finalScore").innerText = "到達レベル: " + level;
 
-    if(level > highScore){
-        highScore = level;
-        localStorage.setItem("memoryHighScore", highScore);
-    }
+    saveScore(level);
 }
 
 function goToStart(){
