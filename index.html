@@ -2,65 +2,67 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>5つの街からの脱出</title>
+<title>架空都市からの脱出</title>
 
 <style>
 body{
 margin:0;
 font-family:sans-serif;
-background:linear-gradient(#c2f0ff,#ffffff);
+background:#cfefff;
 }
 
-/* タイトル＋選択 */
+/* 共通 */
+.hidden{display:none;}
+
+/* ホーム */
 #menu{
-padding:30px;
 text-align:center;
+padding:20px;
 }
 
-h1{
-font-size:40px;
-margin-bottom:20px;
-}
-
-/* 街カード（縦並び） */
 .city{
 width:300px;
-height:120px;
-margin:15px auto;
-border-radius:15px;
-display:flex;
-align-items:center;
-justify-content:center;
+margin:10px auto;
+padding:20px;
+background:#4facfe;
 color:white;
-font-size:20px;
+border-radius:10px;
 cursor:pointer;
-transition:0.3s;
 }
 
-.city:hover{
-transform:scale(1.05);
-}
-
-.c1{background:linear-gradient(#667eea,#764ba2);}
-.c2{background:linear-gradient(#f6d365,#fda085);}
-.c3{background:linear-gradient(#43cea2,#185a9d);}
-.c4{background:linear-gradient(#fa709a,#fee140);}
-.c5{background:linear-gradient(#30cfd0,#330867);}
-
-/* ゲーム画面 */
+/* ゲーム */
 #game{
-display:none;
 height:100vh;
+display:none;
 position:relative;
 }
 
-/* シーン */
-#scene{
+/* 上UI */
+#top{
+position:absolute;
+top:10px;
+left:10px;
+background:white;
+padding:10px;
+border-radius:10px;
+}
+
+/* マップ */
+#map{
+width:100%;
 height:70%;
 display:flex;
 justify-content:center;
 align-items:center;
-font-size:20px;
+font-size:24px;
+}
+
+/* 操作 */
+#controls{
+position:absolute;
+bottom:130px;
+width:100%;
+text-align:center;
 }
 
 /* テキスト */
@@ -71,135 +73,158 @@ width:100%;
 height:120px;
 background:black;
 color:white;
-padding:20px;
+padding:15px;
 cursor:pointer;
-}
-
-/* アイテム */
-#items{
-position:absolute;
-top:10px;
-right:10px;
-background:white;
-padding:10px;
-border-radius:10px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- メニュー -->
+<!-- ホーム -->
 <div id="menu">
 <h1>5つの街からの脱出</h1>
 
-<div class="city c1" onclick="startCity1()">静止した住宅街</div>
-<div class="city c2">音のない商店街</div>
-<div class="city c3">閉ざされた学校</div>
-<div class="city c4">記録が残らない街</div>
-<div class="city c5">もう一人の自分の街</div>
+<p>※街をクリックして開始</p>
 
+<div class="city" onclick="startGame()">静止した住宅街</div>
+<div class="city">（未実装）</div>
+<div class="city">（未実装）</div>
+<div class="city">（未実装）</div>
+<div class="city">（未実装）</div>
 </div>
 
 <!-- ゲーム -->
 <div id="game">
 
-<div id="items">アイテム: <span id="itemList">なし</span></div>
+<div id="top">
+<button onclick="goMenu()">戻る</button><br>
+アイテム: <span id="items">なし</span>
+</div>
 
-<div id="scene"></div>
+<div id="map"></div>
+
+<div id="controls"></div>
 
 <div id="text" onclick="nextText()">クリックで進む</div>
 
 </div>
 
 <script>
-let texts = [];
-let index = 0;
-let items = [];
+let texts=[];
+let i=0;
+let location="street";
+let items=[];
 
 /* 開始 */
-function startCity1(){
+function startGame(){
 document.getElementById("menu").style.display="none";
 document.getElementById("game").style.display="block";
 
-texts = [
-"気づくと、誰もいない住宅街にいた。",
-"すべての時計が止まっている。",
-"正しい時間を見つけろ。"
+texts=[
+"ここは誰もいない街…",
+"探索して時間の手がかりを探そう",
+"画面下はテキスト、上は操作できる"
 ];
-
-index = 0;
+i=0;
 nextText();
-loadScene();
+
+showStreet();
 }
 
-/* テキスト送り（確実に動く） */
+/* テキスト */
 function nextText(){
-if(index < texts.length){
-document.getElementById("text").innerText = texts[index];
-index++;
+if(i < texts.length){
+document.getElementById("text").innerText=texts[i];
+i++;
 }
 }
 
-/* シーン */
-function loadScene(){
-document.getElementById("scene").innerHTML = `
-<div>
-<p>壊れた時計</p>
-<button onclick="getItem()">調べる</button>
+/* 街 */
+function showStreet(){
+location="street";
 
-<p>カレンダー</p>
-<button onclick="showHint('3月15日')">見る</button>
+document.getElementById("map").innerHTML="住宅街（道）";
 
-<p>日記</p>
-<button onclick="showHint('午後3時に外出')">読む</button>
+document.getElementById("controls").innerHTML=`
+<button onclick="enterHouse()">家に入る</button>
+<button onclick="enterShop()">店に入る</button>
+`;
+}
 
-<br><br>
+/* 家 */
+function enterHouse(){
+location="house";
 
-<input id="answer" placeholder="時間（例:15）">
-<button onclick="checkAnswer()">入力</button>
-</div>
+document.getElementById("map").innerHTML="家の中";
+
+document.getElementById("controls").innerHTML=`
+<button onclick="getItem('電池')">机を調べる</button>
+<button onclick="showStreet()">外に出る</button>
+`;
+
+setText("机の上に何かある");
+}
+
+/* 店 */
+function enterShop(){
+location="shop";
+
+document.getElementById("map").innerHTML="店の中";
+
+document.getElementById("controls").innerHTML=`
+<button onclick="hint('3月15日')">カレンダー</button>
+<button onclick="hint('午後3時に外出')">メモ</button>
+<button onclick="solve()">時計を調べる</button>
+<button onclick="showStreet()">外に出る</button>
 `;
 }
 
 /* アイテム */
-function getItem(){
-if(!items.includes("電池")){
-items.push("電池");
+function getItem(item){
+if(!items.includes(item)){
+items.push(item);
 updateItems();
-setText("電池を手に入れた");
+setText(item+"を入手");
 }
 }
 
 function updateItems(){
-document.getElementById("itemList").innerText = items.join(",");
+document.getElementById("items").innerText=items.join(",");
 }
 
 /* ヒント */
-function showHint(msg){
+function hint(msg){
 setText(msg);
 }
 
-/* 判定 */
-function checkAnswer(){
-let val = document.getElementById("answer").value;
+/* 謎 */
+function solve(){
+let ans = prompt("時間は？（数字）");
 
-if(val === "15"){
-texts = ["時計が動き出した","出口が現れた","脱出成功"];
-index = 0;
+if(ans==="15"){
+texts=["時計が動いた","出口発見","クリア"];
+i=0;
 nextText();
+
+setTimeout(goMenu,2000);
+
 }else{
-texts = ["違う時間だ","最初に戻された"];
-index = 0;
-items = [];
-updateItems();
-nextText();
+setText("違う…");
 }
 }
 
-/* テキスト直接表示 */
-function setText(msg){
-document.getElementById("text").innerText = msg;
+/* テキスト */
+function setText(t){
+document.getElementById("text").innerText=t;
+}
+
+/* 戻る */
+function goMenu(){
+document.getElementById("game").style.display="none";
+document.getElementById("menu").style.display="block";
+items=[];
+updateItems();
 }
 </script>
 
