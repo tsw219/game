@@ -18,35 +18,20 @@ body{
 
 #container{
     text-align:center;
-    width:340px;
-}
-
-h1{ margin-bottom:10px; }
-
-#level{ font-size:20px; }
-
-#info{
-    margin:10px;
-    font-size:18px;
-}
-
-#countdown{
-    font-size:28px;
-    color:#00e5ff;
+    width:360px;
 }
 
 #ranking{
     font-size:14px;
     color:#ffd54f;
-    margin-bottom:10px;
+    margin-top:10px;
+    text-align:left;
 }
 
-#game{
-    display:grid;
-    gap:6px;
-    justify-content:center;
-    margin-top:10px;
-    transition:0.3s;
+input{
+    padding:5px;
+    margin-top:5px;
+    width:150px;
 }
 
 .cell{
@@ -55,12 +40,16 @@ h1{ margin-bottom:10px; }
     background:#37474f;
     border-radius:8px;
     cursor:pointer;
-    transition:0.2s;
+    transition:0.1s;
+}
+
+/* 押した感触 */
+.cell:active{
+    transform:scale(0.9);
 }
 
 .cell.active{
     background:#00e676;
-    box-shadow:0 0 10px #00e676;
 }
 
 .cell.correct{
@@ -71,15 +60,10 @@ h1{ margin-bottom:10px; }
     background:#ff1744;
 }
 
-/* 成功演出 */
-.flash{
-    animation:flash 0.4s;
-}
-
-@keyframes flash{
-    0%{transform:scale(1);}
-    50%{transform:scale(1.15);}
-    100%{transform:scale(1);}
+#game{
+    display:grid;
+    gap:6px;
+    justify-content:center;
 }
 
 #successText{
@@ -90,26 +74,13 @@ h1{ margin-bottom:10px; }
     font-size:40px;
     color:#00e676;
     display:none;
-    animation:pop 0.6s;
-}
-
-@keyframes pop{
-    0%{transform:translate(-50%,-50%) scale(0.5);}
-    100%{transform:translate(-50%,-50%) scale(1);}
 }
 
 button{
-    margin-top:15px;
-    padding:10px 20px;
-    font-size:16px;
-    border:none;
-    border-radius:8px;
-    background:#ff9800;
-    color:white;
+    margin-top:10px;
+    padding:8px 15px;
     cursor:pointer;
 }
-
-#gameOver{ display:none; }
 </style>
 </head>
 
@@ -117,22 +88,30 @@ button{
 
 <div id="container">
 
+<!-- スタート -->
 <div id="startScreen">
     <h1>記憶パズル</h1>
-    <p>光ったマスを覚えて再現しよう！</p>
+
+    <div>
+        名前：<input id="nameInput" placeholder="空欄OK">
+        <div style="font-size:12px;">※空欄なら自動でPlayer名になります</div>
+    </div>
+
     <button onclick="startGame()">スタート</button>
+
+    <div id="ranking"></div>
 </div>
 
+<!-- ゲーム -->
 <div id="gameScreen" style="display:none;">
-    <h1>記憶パズル</h1>
-    <div id="ranking"></div>
-    <div id="level"></div>
+    <h2 id="level"></h2>
     <div id="info"></div>
     <div id="countdown"></div>
     <div id="game"></div>
 </div>
 
-<div id="gameOver">
+<!-- 終了 -->
+<div id="gameOver" style="display:none;">
     <h1>ゲームオーバー</h1>
     <p id="finalScore"></p>
     <button onclick="goToStart()">最初に戻る</button>
@@ -150,43 +129,78 @@ let player = [];
 let showing = true;
 let countdownTimer;
 
-// 🎵 音
-const clickSound = new Audio("https://cdn.jsdelivr.net/gh/jshawl/AudioFX/sounds/click1.mp3");
-const successSound = new Audio("https://cdn.jsdelivr.net/gh/jshawl/AudioFX/sounds/bling1.mp3");
-const failSound = new Audio("https://cdn.jsdelivr.net/gh/jshawl/AudioFX/sounds/error1.mp3");
-
-// 🏆 ランキング
 let scores = JSON.parse(localStorage.getItem("ranking") || "[]");
 
+// 🔊 音（生成型で確実に鳴る）
+function playSound(freq, time){
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.frequency.value = freq;
+    osc.start();
+
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + time);
+
+    osc.stop(ctx.currentTime + time);
+}
+
+// 🏆 ランキング表示
 function updateRanking(){
     let text = "🏆 Ranking<br>";
     scores.slice(0,5).forEach((s,i)=>{
-        text += `${i+1}. Lv ${s}<br>`;
+        text += `${i+1}. ${s.name} : Lv ${s.score}<br>`;
     });
     document.getElementById("ranking").innerHTML = text;
 }
 
-function saveScore(score){
-    scores.push(score);
-    scores.sort((a,b)=>b-a);
+// 名前処理
+function getPlayerName(){
+    let input = document.getElementById("nameInput").value.trim();
+
+    if(input === ""){
+        let count = scores.filter(s => s.name.startsWith("Player")).length + 1;
+        return "Player" + count;
+    }
+
+    if(scores.some(s => s.name === input)){
+        alert("同じ名前があります！");
+        return null;
+    }
+
+    return input;
+}
+
+function saveScore(name, score){
+    scores.push({name, score});
+    scores.sort((a,b)=>b.score-a.score);
     localStorage.setItem("ranking", JSON.stringify(scores));
 }
 
-function getShowTime(){
-    return Math.min(1800 + level*80, 3500);
-}
+// ===== ゲーム =====
 
-function getPatternCount(){
-    return Math.min(3 + Math.floor(level/2), size*size-1);
-}
+let playerName = "";
 
 function startGame(){
-    document.getElementById("startScreen").style.display = "none";
-    document.getElementById("gameOver").style.display = "none";
-    document.getElementById("gameScreen").style.display = "block";
+    let name = getPlayerName();
+    if(name === null) return;
 
-    updateRanking();
+    playerName = name;
 
+    document.getElementById("startScreen").style.display="none";
+    document.getElementById("gameScreen").style.display="block";
+
+    level = 1;
+    size = 3;
+
+    updateGame();
+}
+
+function updateGame(){
     player = [];
     pattern = [];
 
@@ -195,16 +209,16 @@ function startGame(){
 
     const game = document.getElementById("game");
     game.innerHTML = "";
-    game.style.gridTemplateColumns = `repeat(${size}, 55px)`;
+    game.style.gridTemplateColumns = `repeat(${size},55px)`;
 
     for(let i=0;i<size*size;i++){
         const div = document.createElement("div");
         div.classList.add("cell");
-        div.onclick = () => clickCell(i, div);
+        div.onclick = ()=>clickCell(i,div);
         game.appendChild(div);
     }
 
-    let count = getPatternCount();
+    let count = Math.min(3 + Math.floor(level/2), size*size-1);
     while(pattern.length < count){
         let r = Math.floor(Math.random()*size*size);
         if(!pattern.includes(r)) pattern.push(r);
@@ -215,41 +229,39 @@ function startGame(){
 
 function showPattern(){
     showing = true;
-
     const cells = document.querySelectorAll(".cell");
-    pattern.forEach(i => cells[i].classList.add("active"));
 
-    let time = getShowTime();
+    pattern.forEach(i=>cells[i].classList.add("active"));
+
+    let time = Math.min(1800 + level*80, 3500);
     let start = Date.now();
 
     clearInterval(countdownTimer);
     countdownTimer = setInterval(()=>{
-        let remaining = Math.max(0, time - (Date.now()-start));
-        document.getElementById("countdown").innerText = (remaining/1000).toFixed(2);
-        if(remaining <= 0) clearInterval(countdownTimer);
+        let remain = Math.max(0, time-(Date.now()-start));
+        document.getElementById("countdown").innerText=(remain/1000).toFixed(2);
     },10);
 
     setTimeout(()=>{
-        cells.forEach(c => c.classList.remove("active"));
-        showing = false;
-        document.getElementById("info").innerText = "再現してください";
-        document.getElementById("countdown").innerText = "";
-    }, time);
+        cells.forEach(c=>c.classList.remove("active"));
+        showing=false;
+        document.getElementById("info").innerText="再現してください";
+        document.getElementById("countdown").innerText="";
+    },time);
 }
 
-function clickCell(index, div){
+function clickCell(i,div){
     if(showing) return;
-    if(player.includes(index)) return;
+    if(player.includes(i)) return;
 
-    clickSound.currentTime = 0;
-    clickSound.play();
+    playSound(400,0.1); // クリック音
 
-    player.push(index);
+    player.push(i);
     div.classList.add("correct");
 
-    if(!pattern.includes(index)){
+    if(!pattern.includes(i)){
         div.classList.add("wrong");
-        failSound.play();
+        playSound(150,0.3);
         gameOver();
         return;
     }
@@ -260,46 +272,42 @@ function clickCell(index, div){
 }
 
 function success(){
-    document.getElementById("info").innerText = "成功！";
-
-    // 音
-    successSound.play();
-
-    // 演出
-    document.getElementById("game").classList.add("flash");
+    playSound(800,0.2);
 
     const text = document.getElementById("successText");
-    text.style.display = "block";
+    text.style.display="block";
 
-    setTimeout(()=>{
-        text.style.display = "none";
-        document.getElementById("game").classList.remove("flash");
-    },600);
+    setTimeout(()=>{ text.style.display="none"; },600);
 
     level++;
 
     if(level % 3 === 0){
-        size = Math.min(size+1, 7);
+        size = Math.min(size+1,7);
     }
 
-    setTimeout(startGame,900);
+    setTimeout(updateGame,800);
 }
 
 function gameOver(){
-    document.getElementById("gameScreen").style.display = "none";
-    document.getElementById("gameOver").style.display = "block";
+    document.getElementById("gameScreen").style.display="none";
+    document.getElementById("gameOver").style.display="block";
 
-    document.getElementById("finalScore").innerText = "到達レベル: " + level;
+    document.getElementById("finalScore").innerText =
+        playerName + " のスコア: Lv " + level;
 
-    saveScore(level);
+    saveScore(playerName, level);
+    updateRanking();
 }
 
 function goToStart(){
-    level = 1;
-    size = 3;
-    document.getElementById("gameOver").style.display = "none";
-    document.getElementById("startScreen").style.display = "block";
+    document.getElementById("gameOver").style.display="none";
+    document.getElementById("startScreen").style.display="block";
+    updateRanking();
 }
+
+// 初期表示
+updateRanking();
+
 </script>
 
 </body>
