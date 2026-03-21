@@ -2,251 +2,50 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>5つの街からの脱出ゲーム</title>
+<title>脱出ゲーム</title>
 
 <style>
 body{
 margin:0;
-font-family:"Segoe UI",sans-serif;
+font-family:sans-serif;
 background:linear-gradient(#bfe9ff,#e6f7ff);
-overflow:hidden;
 }
 
-/* 共通 */
 .screen{
-position:absolute;
-width:100%;
-height:100%;
 display:none;
-justify-content:center;
-align-items:center;
-flex-direction:column;
+text-align:center;
+padding-top:100px;
 }
 
-/* タイトル */
 #titleScreen{
-display:flex;
+display:block;
 }
 
-h1{
-font-size:40px;
-color:#333;
-text-shadow:2px 2px 5px rgba(0,0,0,0.2);
-}
-
-.startBtn{
-margin-top:30px;
-padding:15px 40px;
+button{
+padding:15px 30px;
 font-size:20px;
-border:none;
-border-radius:30px;
-background:linear-gradient(45deg,#4facfe,#00f2fe);
-color:white;
+margin-top:20px;
 cursor:pointer;
-box-shadow:0 5px 15px rgba(0,0,0,0.2);
-transition:0.3s;
-}
-
-.startBtn:hover{
-transform:scale(1.1);
-}
-
-/* 街選択 */
-#selectScreen{
-overflow-y:auto;
-padding-top:30px;
-}
-
-.cityCard{
-width:250px;
-height:120px;
-margin:15px;
-border-radius:15px;
-display:flex;
-align-items:center;
-justify-content:center;
-color:white;
-font-size:18px;
-cursor:pointer;
-box-shadow:0 5px 15px rgba(0,0,0,0.2);
-transition:0.3s;
-}
-
-.cityCard:hover{
-transform:scale(1.05);
-}
-
-/* 各街イメージ */
-.city1{background:linear-gradient(#89f7fe,#66a6ff);}
-.city2{background:linear-gradient(#fbc2eb,#a6c1ee);}
-.city3{background:linear-gradient(#fddb92,#d1fdff);}
-.city4{background:linear-gradient(#a1c4fd,#c2e9fb);}
-.city5{background:linear-gradient(#d4fc79,#96e6a1);}
-
-/* ゲーム画面 */
-#gameScreen{
-background:#fff;
-display:flex;
-flex-direction:column;
-}
-
-#scene{
-flex:1;
-display:flex;
-justify-content:center;
-align-items:center;
-font-size:22px;
-}
-
-#textbox{
-height:120px;
-background:rgba(0,0,0,0.7);
-color:white;
-padding:15px;
-cursor:pointer;
-}
-
-/* アイテム */
-#items{
-position:absolute;
-right:10px;
-top:10px;
-background:white;
-padding:10px;
-border-radius:10px;
-box-shadow:0 0 10px rgba(0,0,0,0.2);
-}
-
-/* 入力 */
-input{
-padding:5px;
-margin-top:10px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- タイトル -->
 <div id="titleScreen" class="screen">
-<h1>5つの街からの脱出</h1>
-<button class="startBtn" onclick="showSelect()">START</button>
+<h1>脱出ゲーム</h1>
+<button onclick="goSelect()">START</button>
 </div>
 
-<!-- 街選択 -->
 <div id="selectScreen" class="screen">
-<div class="cityCard city1" onclick="startGame(1)">静止した住宅街</div>
-<div class="cityCard city2" onclick="startGame(2)">音のない商店街</div>
-<div class="cityCard city3" onclick="startGame(3)">閉ざされた学校</div>
-<div class="cityCard city4" onclick="startGame(4)">記録が残らない街</div>
-<div class="cityCard city5" onclick="startGame(5)">もう一人の自分の街</div>
-</div>
-
-<!-- ゲーム -->
-<div id="gameScreen" class="screen">
-
-<div id="items">アイテム: <span id="itemList">なし</span></div>
-
-<div id="scene"></div>
-
-<div id="textbox" onclick="nextText()">クリックで進む</div>
-
+<h2>街を選択</h2>
+<button onclick="alert('OK動いてる')">テストボタン</button>
 </div>
 
 <script>
-let textIndex = 0;
-let texts = [];
-let currentCity = 0;
-
-function showSelect(){
-hideAll();
-document.getElementById("selectScreen").style.display="flex";
-}
-
-function startGame(city){
-currentCity = city;
-hideAll();
-document.getElementById("gameScreen").style.display="flex";
-
-if(city === 1){
-startCity1();
-}else{
-texts = ["この街はまだ開発中…","でも雰囲気は感じられる","（今後追加予定）"];
-textIndex = 0;
-nextText();
-}
-}
-
-function startCity1(){
-texts = [
-"気づくと、誰もいない住宅街にいた。",
-"すべての時計が止まっている。",
-"正しい時間を見つけないと、ここから出られない気がする…"
-];
-textIndex = 0;
-nextText();
-
-document.getElementById("scene").innerHTML = `
-<div>
-<p>壊れた時計</p>
-<button onclick="findItem('電池')">調べる</button>
-
-<p>カレンダー</p>
-<button onclick="showHint('今日は3月15日')">見る</button>
-
-<p>日記</p>
-<button onclick="showHint('午後3時に出かけた')">読む</button>
-
-<br>
-<input id="timeInput" placeholder="時間を入力 (例:15)">
-<button onclick="checkTime()">決定</button>
-</div>
-`;
-}
-
-function nextText(){
-if(textIndex < texts.length){
-document.getElementById("textbox").innerText = texts[textIndex];
-textIndex++;
-}
-}
-
-function showHint(msg){
-document.getElementById("textbox").innerText = msg;
-}
-
-let items = [];
-
-function findItem(item){
-if(!items.includes(item)){
-items.push(item);
-updateItems();
-document.getElementById("textbox").innerText = item + "を手に入れた！";
-}
-}
-
-function updateItems(){
-document.getElementById("itemList").innerText = items.join(",");
-}
-
-function checkTime(){
-let val = document.getElementById("timeInput").value;
-
-if(val == "15"){
-texts = ["時計が動き出した…！","出口が現れた！","クリア！"];
-textIndex = 0;
-nextText();
-}else{
-texts = ["時間が違う…","世界が歪む…","最初に戻された"];
-textIndex = 0;
-nextText();
-items = [];
-updateItems();
-}
-}
-
-function hideAll(){
-document.querySelectorAll(".screen").forEach(e=>e.style.display="none");
+function goSelect(){
+document.getElementById("titleScreen").style.display="none";
+document.getElementById("selectScreen").style.display="block";
 }
 </script>
 
