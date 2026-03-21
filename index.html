@@ -10,58 +10,85 @@ body{
     font-family:sans-serif;
     background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     color:white;
+    height:100vh;
     display:flex;
     justify-content:center;
     align-items:center;
-    height:100vh;
 }
 
-/* コンテナ固定 */
+/* 固定コンテナ（絶対重要） */
 #container{
     position:relative;
     width:360px;
-    height:520px; /* ←固定が超重要 */
+    height:560px;
 }
 
-/* 画面を重ねる */
+/* 画面を重ねる（display禁止） */
 .screen{
     position:absolute;
     width:100%;
-    height:100%;
     top:0;
     left:0;
-
-    opacity:0;
-    pointer-events:none;
-    transition:opacity 0.3s;
+    transition:opacity 0.2s;
 }
 
-.active{
+.hidden{
+    opacity:0;
+    pointer-events:none;
+}
+
+.visible{
     opacity:1;
     pointer-events:auto;
 }
 
-/* ゲーム */
+/* ゲーム枠固定（ガシャ防止の本体） */
 #game{
     width:350px;
     height:350px;
     margin:0 auto;
+
     display:grid;
     gap:6px;
 }
 
+/* マス */
 .cell{
     background:#37474f;
     border-radius:8px;
     cursor:pointer;
+    position:relative;
+    overflow:hidden;
 }
+
+.cell:active{transform:scale(0.9);}
 .cell.active{background:#00e676;}
 .cell.correct{background:#2979ff;}
 .cell.wrong{background:#ff1744;}
 
+/* 波紋 */
+.ripple{
+    position:absolute;
+    border-radius:50%;
+    background:rgba(255,255,255,0.5);
+    transform:scale(0);
+    animation:ripple 0.5s linear;
+}
+@keyframes ripple{
+    to{transform:scale(4);opacity:0;}
+}
+
+/* カウントダウン */
 #countdown{
-    font-size:40px;
+    font-size:42px;
     text-align:center;
+    margin:10px;
+}
+
+/* ランキング */
+#ranking{
+    font-size:14px;
+    color:#ffd54f;
 }
 
 /* 成功 */
@@ -70,9 +97,21 @@ body{
     top:50%;
     left:50%;
     transform:translate(-50%,-50%);
-    font-size:40px;
+    font-size:45px;
     color:#00e676;
     display:none;
+}
+
+/* シェイク */
+.shake{
+    animation:shake 0.4s;
+}
+@keyframes shake{
+    0%{transform:translate(0);}
+    25%{transform:translate(-5px,5px);}
+    50%{transform:translate(5px,-5px);}
+    75%{transform:translate(-5px,5px);}
+    100%{transform:translate(0);}
 }
 </style>
 </head>
@@ -82,8 +121,13 @@ body{
 <div id="container">
 
 <!-- スタート -->
-<div id="startScreen" class="screen active">
+<div id="startScreen" class="screen visible">
 <h1>記憶パズル</h1>
+
+<div>
+光った場所を覚えて再現するゲーム<br>
+間違えたらゲームオーバー
+</div>
 
 名前：<input id="nameInput" placeholder="空欄OK"><br>
 <button onclick="startGame()">スタート</button>
@@ -92,17 +136,18 @@ body{
 </div>
 
 <!-- ゲーム -->
-<div id="gameScreen" class="screen">
+<div id="gameScreen" class="screen hidden">
 <h2 id="level"></h2>
+<div id="info"></div>
 <div id="countdown"></div>
 <div id="game"></div>
 </div>
 
 <!-- 終了 -->
-<div id="gameOver" class="screen">
+<div id="gameOver" class="screen hidden">
 <h1>ゲームオーバー</h1>
 <p id="finalScore"></p>
-<button onclick="goStart()">戻る</button>
+<button onclick="goStart()">最初に戻る</button>
 </div>
 
 <div id="successText">成功！</div>
@@ -110,116 +155,148 @@ body{
 </div>
 
 <script>
-let size=3,level=1,pattern=[],player=[],showing=true;
+let size=3,level=1,pattern=[],player=[],showing=true,timer;
 let scores=JSON.parse(localStorage.getItem("ranking")||"[]");
 let playerName="";
 
+/* 画面切替（display使わない） */
 function showScreen(id){
- document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
- document.getElementById(id).classList.add("active");
+    ["startScreen","gameScreen","gameOver"].forEach(s=>{
+        document.getElementById(s).className="screen hidden";
+    });
+    document.getElementById(id).className="screen visible";
 }
 
+/* ランキング */
 function updateRanking(){
- let t="🏆<br>";
- scores.slice(0,5).forEach((s,i)=>t+=`${i+1}.${s.name}:Lv${s.score}<br>`);
- document.getElementById("ranking").innerHTML=t;
- localStorage.setItem("ranking",JSON.stringify(scores));
+    scores=scores.filter(s=>s&&s.name&&s.score);
+    let t="🏆 Ranking<br>";
+    if(scores.length===0)t+="なし";
+    else scores.slice(0,5).forEach((s,i)=>t+=`${i+1}. ${s.name}:Lv${s.score}<br>`);
+    document.getElementById("ranking").innerHTML=t;
+    localStorage.setItem("ranking",JSON.stringify(scores));
 }
 
 function getName(){
- let v=document.getElementById("nameInput").value.trim();
- if(v===""){
-  let n=1;while(scores.some(s=>s.name==="Player"+n))n++;
-  return"Player"+n;
- }
- if(scores.some(s=>s.name===v)){alert("同じ名前");return null;}
- return v;
+    let v=document.getElementById("nameInput").value.trim();
+    if(v===""){
+        let n=1;
+        while(scores.some(s=>s.name==="Player"+n))n++;
+        return "Player"+n;
+    }
+    if(scores.some(s=>s.name===v)){alert("同じ名前あり");return null;}
+    return v;
 }
 
 function startGame(){
- let n=getName(); if(!n)return;
- playerName=n;
- showScreen("gameScreen");
- level=1; size=3;
- updateGame();
+    let n=getName(); if(!n)return;
+    playerName=n;
+    showScreen("gameScreen");
+    level=1; size=3;
+    updateGame();
 }
 
 function updateGame(){
- player=[];pattern=[];
- document.getElementById("level").innerText="Level "+level;
+    player=[];pattern=[];
+    document.getElementById("level").innerText="Level "+level;
+    document.getElementById("info").innerText="覚えて！";
 
- let game=document.getElementById("game");
- game.innerHTML="";
- game.style.gridTemplateColumns=`repeat(${size},1fr)`;
+    let game=document.getElementById("game");
+    game.innerHTML="";
+    game.style.gridTemplateColumns=`repeat(${size},1fr)`;
 
- for(let i=0;i<size*size;i++){
-  let d=document.createElement("div");
-  d.className="cell";
-  d.onclick=()=>clickCell(i,d);
-  game.appendChild(d);
- }
+    for(let i=0;i<size*size;i++){
+        let d=document.createElement("div");
+        d.className="cell";
+        d.onclick=e=>clickCell(i,d,e);
+        game.appendChild(d);
+    }
 
- let count=Math.min(3+Math.floor(level/2),size*size-1);
- while(pattern.length<count){
-  let r=Math.floor(Math.random()*size*size);
-  if(!pattern.includes(r))pattern.push(r);
- }
+    let count=Math.min(3+Math.floor(level/2),size*size-1);
+    while(pattern.length<count){
+        let r=Math.floor(Math.random()*size*size);
+        if(!pattern.includes(r))pattern.push(r);
+    }
 
- showPattern();
+    showPattern();
 }
 
 function showPattern(){
- showing=true;
- let cells=document.querySelectorAll(".cell");
+    showing=true;
+    let cells=document.querySelectorAll(".cell");
 
- pattern.forEach(i=>cells[i].classList.add("active"));
+    pattern.forEach(i=>cells[i].classList.add("active"));
 
- setTimeout(()=>{
-  cells.forEach(c=>c.classList.remove("active"));
-  showing=false;
- },1500);
+    let t=1500,start=Date.now();
+    clearInterval(timer);
+    timer=setInterval(()=>{
+        let r=Math.max(0,t-(Date.now()-start));
+        document.getElementById("countdown").innerText=(r/1000).toFixed(2);
+    },10);
+
+    setTimeout(()=>{
+        cells.forEach(c=>c.classList.remove("active"));
+        showing=false;
+        document.getElementById("info").innerText="再現してください";
+        document.getElementById("countdown").innerText="";
+    },t);
 }
 
-function clickCell(i,d){
- if(showing||player.includes(i))return;
-
- player.push(i);
- d.classList.add("correct");
-
- if(!pattern.includes(i)){
-  gameOver();
-  return;
- }
-
- if(player.length===pattern.length){
-  showSuccess();
- }
+function ripple(div,e){
+    let r=document.createElement("span");
+    r.className="ripple";
+    let rect=div.getBoundingClientRect();
+    r.style.left=(e.clientX-rect.left)+"px";
+    r.style.top=(e.clientY-rect.top)+"px";
+    div.appendChild(r);
+    setTimeout(()=>r.remove(),500);
 }
 
-function showSuccess(){
- let t=document.getElementById("successText");
- t.style.display="block";
+function clickCell(i,d,e){
+    if(showing||player.includes(i))return;
 
- setTimeout(()=>{
-  t.style.display="none";
-  level++;
-  if(level%3===0) size++;
-  updateGame();
- },600);
+    ripple(d,e);
+    player.push(i);
+    d.classList.add("correct");
+
+    if(!pattern.includes(i)){
+        d.classList.add("wrong");
+        document.getElementById("container").classList.add("shake");
+        setTimeout(()=>document.getElementById("container").classList.remove("shake"),400);
+        gameOver();
+        return;
+    }
+
+    if(player.length===pattern.length){
+        success();
+    }
+}
+
+function success(){
+    let t=document.getElementById("successText");
+    t.style.display="block";
+
+    setTimeout(()=>{
+        t.style.display="none";
+        level++;
+        if(level%3===0) size=Math.min(size+1,7);
+        updateGame();
+    },600);
 }
 
 function gameOver(){
- document.getElementById("finalScore").innerText=playerName+" Lv "+level;
+    document.getElementById("finalScore").innerText=
+        playerName+" のスコア: Lv "+level;
 
- scores.push({name:playerName,score:level});
- scores.sort((a,b)=>b.score-a.score);
+    scores.push({name:playerName,score:level});
+    scores.sort((a,b)=>b.score-a.score);
 
- showScreen("gameOver");
- updateRanking();
+    updateRanking();
+    showScreen("gameOver");
 }
 
 function goStart(){
- showScreen("startScreen");
+    showScreen("startScreen");
 }
 
 updateRanking();
