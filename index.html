@@ -14,42 +14,32 @@ body{
     justify-content:center;
     align-items:center;
     height:100vh;
-    overflow:hidden;
 }
 
+/* 中央の箱は固定 */
 #container{
     text-align:center;
     width:360px;
-    will-change: transform;
 }
 
 /* ルール */
 #rules{
     font-size:14px;
-    line-height:1.6;
     background:rgba(255,255,255,0.08);
     padding:10px;
     border-radius:8px;
     margin:10px 0;
 }
 
-#ranking{
-    font-size:14px;
-    color:#ffd54f;
-    text-align:left;
-}
-
-#countdown{
-    font-size:42px;
-    color:#00e5ff;
-    margin:10px;
-}
-
-/* グリッド */
+/* ←ここが最重要 */
 #game{
+    width:350px;
+    height:350px;
+    margin:0 auto;
+
     display:grid;
     gap:6px;
-    justify-content:center;
+
     transition:opacity 0.2s;
 }
 
@@ -57,94 +47,23 @@ body{
 .fadeIn{opacity:1;}
 
 .cell{
-    width:55px;
-    height:55px;
     background:#37474f;
     border-radius:8px;
     cursor:pointer;
-    position:relative;
-    overflow:hidden;
 }
-
-.cell:active{ transform:scale(0.9); }
 
 .cell.active{ background:#00e676; }
 .cell.correct{ background:#2979ff; }
 .cell.wrong{ background:#ff1744; }
 
-/* 波紋 */
-.ripple{
-    position:absolute;
-    border-radius:50%;
-    background:rgba(255,255,255,0.5);
-    transform:scale(0);
-    animation:ripple 0.5s linear;
+#countdown{
+    font-size:40px;
+    margin:10px;
 }
-@keyframes ripple{
-    to{transform:scale(4);opacity:0;}
-}
-
-/* 成功 */
-#successText{
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-size:45px;
-    color:#00e676;
-    display:none;
-    animation:pop 0.6s;
-}
-@keyframes pop{
-    0%{transform:translate(-50%,-50%) scale(0.5);}
-    100%{transform:translate(-50%,-50%) scale(1);}
-}
-
-/* シェイク */
-.shake{animation:shake 0.4s;}
-@keyframes shake{
-    0%{transform:translate(0);}
-    25%{transform:translate(-5px,5px);}
-    50%{transform:translate(5px,-5px);}
-    75%{transform:translate(-5px,5px);}
-    100%{transform:translate(0);}
-}
-
-/* フラッシュ */
-#flashOverlay{
-    position:fixed;
-    width:100%;
-    height:100%;
-    background:red;
-    opacity:0;
-    pointer-events:none;
-}
-.flashRed{animation:flashRed 0.4s;}
-@keyframes flashRed{
-    0%{opacity:0.5;}
-    100%{opacity:0;}
-}
-
-/* パーティクル */
-.particle{
-    position:absolute;
-    width:6px;
-    height:6px;
-    background:#00e676;
-    border-radius:50%;
-    animation:particle 0.6s linear;
-}
-@keyframes particle{
-    to{transform:translate(var(--x),var(--y));opacity:0;}
-}
-
-button{margin-top:10px;padding:8px 15px;cursor:pointer;}
 </style>
 </head>
 
 <body>
-
-<div id="flashOverlay"></div>
 
 <div id="container">
 
@@ -152,78 +71,28 @@ button{margin-top:10px;padding:8px 15px;cursor:pointer;}
 <h1>記憶パズル</h1>
 
 <div id="rules">
-・光ったマスを覚える<br>
+・光った場所を覚える<br>
 ・同じ場所をクリック<br>
 ・間違えたら終了
 </div>
 
-名前：<input id="nameInput" placeholder="空欄OK"><br>
 <button onclick="startGame()">スタート</button>
-
-<div id="ranking"></div>
 </div>
 
 <div id="gameScreen" style="display:none;">
 <h2 id="level"></h2>
-<div id="info"></div>
 <div id="countdown"></div>
 <div id="game"></div>
 </div>
 
-<div id="gameOver" style="display:none;">
-<h1>ゲームオーバー</h1>
-<p id="finalScore"></p>
-<button onclick="goToStart()">最初に戻る</button>
-</div>
-
-<div id="successText">成功！</div>
-
 </div>
 
 <script>
-let size=3,level=1,pattern=[],player=[],showing=true,timer;
-let scores=JSON.parse(localStorage.getItem("ranking")||"[]");
-let audioCtx;
-
-function initAudio(){
- if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-}
-
-function playSound(f,t){
- if(!audioCtx)return;
- let o=audioCtx.createOscillator(),g=audioCtx.createGain();
- o.connect(g);g.connect(audioCtx.destination);
- o.frequency.value=f;o.start();
- g.gain.setValueAtTime(0.2,audioCtx.currentTime);
- g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+t);
- o.stop(audioCtx.currentTime+t);
-}
-
-function updateRanking(){
- scores=scores.filter(s=>s&&s.name&&s.score);
- let t="🏆<br>";
- scores.slice(0,5).forEach((s,i)=>t+=`${i+1}.${s.name}:Lv${s.score}<br>`);
- document.getElementById("ranking").innerHTML=t||"なし";
- localStorage.setItem("ranking",JSON.stringify(scores));
-}
-
-function getName(){
- let v=document.getElementById("nameInput").value.trim();
- if(v===""){
-  let n=1;while(scores.some(s=>s.name==="Player"+n))n++;
-  return"Player"+n;
- }
- if(scores.some(s=>s.name===v)){alert("同名あり");return null;}
- return v;
-}
+let size=3,level=1,pattern=[],player=[],showing=true;
 
 function startGame(){
- initAudio();
- let n=getName();if(!n)return;
- name=n;
  document.getElementById("startScreen").style.display="none";
  document.getElementById("gameScreen").style.display="block";
- level=1;size=3;
  updateGame();
 }
 
@@ -232,17 +101,19 @@ function updateGame(){
  game.classList.add("fadeOut");
 
  setTimeout(()=>{
+
   player=[];pattern=[];
+
   document.getElementById("level").innerText="Level "+level;
-  document.getElementById("info").innerText="覚えて！";
 
   game.innerHTML="";
-  game.style.gridTemplateColumns=`repeat(${size},55px)`;
+  game.style.gridTemplateColumns=`repeat(${size},1fr)`;
+  game.style.gridTemplateRows=`repeat(${size},1fr)`;
 
   for(let i=0;i<size*size;i++){
    let d=document.createElement("div");
    d.className="cell";
-   d.onclick=e=>clickCell(i,d,e);
+   d.onclick=()=>clickCell(i,d);
    game.appendChild(d);
   }
 
@@ -253,99 +124,42 @@ function updateGame(){
   }
 
   game.classList.remove("fadeOut");
+
   showPattern();
 
- },200);
+ },150);
 }
 
 function showPattern(){
  showing=true;
  let cells=document.querySelectorAll(".cell");
- pattern.forEach(i=>cells[i].classList.add("active"));
 
- let t=Math.min(1800+level*80,3500),s=Date.now();
- clearInterval(timer);
- timer=setInterval(()=>{
-  let r=Math.max(0,t-(Date.now()-s));
-  document.getElementById("countdown").innerText=(r/1000).toFixed(2);
- },10);
+ pattern.forEach(i=>cells[i].classList.add("active"));
 
  setTimeout(()=>{
   cells.forEach(c=>c.classList.remove("active"));
   showing=false;
-  document.getElementById("info").innerText="再現してください";
-  document.getElementById("countdown").innerText="";
- },t);
+ },1500);
 }
 
-function ripple(div,e){
- let r=document.createElement("span");
- r.className="ripple";
- let rect=div.getBoundingClientRect();
- r.style.left=(e.clientX-rect.left)+"px";
- r.style.top=(e.clientY-rect.top)+"px";
- div.appendChild(r);
- setTimeout(()=>r.remove(),500);
-}
-
-function clickCell(i,d,e){
+function clickCell(i,d){
  if(showing||player.includes(i))return;
- ripple(d,e);playSound(400,0.1);
- player.push(i);d.classList.add("correct");
+
+ player.push(i);
+ d.classList.add("correct");
 
  if(!pattern.includes(i)){
-  d.classList.add("wrong");playSound(150,0.3);
-
-  let c=document.getElementById("container");
-  c.classList.add("shake");
-  let o=document.getElementById("flashOverlay");
-  o.classList.add("flashRed");
-
-  setTimeout(()=>{c.classList.remove("shake");o.classList.remove("flashRed");},400);
-  gameOver();return;
+  alert("ゲームオーバー");
+  location.reload();
+  return;
  }
 
- if(player.length===pattern.length)success();
-}
-
-function particles(){
- for(let i=0;i<20;i++){
-  let p=document.createElement("div");
-  p.className="particle";
-  p.style.left="50%";p.style.top="50%";
-  p.style.setProperty("--x",(Math.random()*200-100)+"px");
-  p.style.setProperty("--y",(Math.random()*200-100)+"px");
-  document.body.appendChild(p);
-  setTimeout(()=>p.remove(),600);
+ if(player.length===pattern.length){
+  level++;
+  if(level%3===0)size++;
+  setTimeout(updateGame,400);
  }
 }
-
-function success(){
- playSound(800,0.2);particles();
- let t=document.getElementById("successText");
- t.style.display="block";
- setTimeout(()=>t.style.display="none",600);
-
- level++;if(level%3===0)size=Math.min(size+1,7);
- setTimeout(updateGame,600);
-}
-
-function gameOver(){
- document.getElementById("gameScreen").style.display="none";
- document.getElementById("gameOver").style.display="block";
- document.getElementById("finalScore").innerText=name+" Lv "+level;
-
- scores.push({name,score:level});
- scores.sort((a,b)=>b.score-a.score);
- updateRanking();
-}
-
-function goToStart(){
- document.getElementById("gameOver").style.display="none";
- document.getElementById("startScreen").style.display="block";
-}
-
-updateRanking();
 </script>
 
 </body>
