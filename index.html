@@ -20,6 +20,7 @@ body{
 #container{
     text-align:center;
     width:360px;
+    will-change: transform; /* ←安定化 */
 }
 
 /* ルール */
@@ -50,7 +51,6 @@ input{
     margin:10px;
 }
 
-/* マス */
 .cell{
     width:55px;
     height:55px;
@@ -105,10 +105,11 @@ input{
     100%{transform:translate(-50%,-50%) scale(1);}
 }
 
-/* シェイク */
+/* シェイク（containerに適用） */
 .shake{
     animation:shake 0.4s;
 }
+
 @keyframes shake{
     0%{transform:translate(0);}
     25%{transform:translate(-5px,5px);}
@@ -117,7 +118,7 @@ input{
     100%{transform:translate(0);}
 }
 
-/* 赤フラッシュ（安全版） */
+/* 赤フラッシュ */
 #flashOverlay{
     position:fixed;
     top:0;
@@ -272,7 +273,7 @@ function saveScore(name,score){
 let playerName="";
 
 function startGame(){
-    initAudio(); // ★これで音バグ解消
+    initAudio();
 
     let name=getPlayerName();
     if(!name) return;
@@ -357,13 +358,14 @@ function clickCell(i,div,e){
         div.classList.add("wrong");
         playSound(150,0.3);
 
-        document.body.classList.add("shake");
+        const container=document.getElementById("container");
+        container.classList.add("shake");
 
         const overlay=document.getElementById("flashOverlay");
         overlay.classList.add("flashRed");
 
         setTimeout(()=>{
-            document.body.classList.remove("shake");
+            container.classList.remove("shake");
             overlay.classList.remove("flashRed");
         },400);
 
