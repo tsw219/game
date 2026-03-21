@@ -16,7 +16,7 @@ body{
     height:100vh;
 }
 
-/* 中央の箱は固定 */
+/* 固定コンテナ */
 #container{
     text-align:center;
     width:360px;
@@ -31,7 +31,7 @@ body{
     margin:10px 0;
 }
 
-/* ←ここが最重要 */
+/* ←ガシャ完全防止 */
 #game{
     width:350px;
     height:350px;
@@ -39,26 +39,34 @@ body{
 
     display:grid;
     gap:6px;
-
     transition:opacity 0.2s;
 }
 
 .fadeOut{opacity:0;}
-.fadeIn{opacity:1;}
 
 .cell{
     background:#37474f;
     border-radius:8px;
     cursor:pointer;
+    position:relative;
+    overflow:hidden;
 }
 
-.cell.active{ background:#00e676; }
-.cell.correct{ background:#2979ff; }
-.cell.wrong{ background:#ff1744; }
+.cell:active{transform:scale(0.9);}
+.cell.active{background:#00e676;}
+.cell.correct{background:#2979ff;}
+.cell.wrong{background:#ff1744;}
 
 #countdown{
     font-size:40px;
     margin:10px;
+}
+
+/* ランキング */
+#ranking{
+    font-size:14px;
+    color:#ffd54f;
+    text-align:left;
 }
 </style>
 </head>
@@ -76,7 +84,10 @@ body{
 ・間違えたら終了
 </div>
 
+名前：<input id="nameInput" placeholder="空欄OK"><br>
 <button onclick="startGame()">スタート</button>
+
+<div id="ranking"></div>
 </div>
 
 <div id="gameScreen" style="display:none;">
@@ -85,14 +96,47 @@ body{
 <div id="game"></div>
 </div>
 
+<div id="gameOver" style="display:none;">
+<h1>ゲームオーバー</h1>
+<p id="finalScore"></p>
+<button onclick="goToStart()">最初に戻る</button>
+</div>
+
 </div>
 
 <script>
-let size=3,level=1,pattern=[],player=[],showing=true;
+let size=3,level=1,pattern=[],player=[],showing=true,timer;
+let scores=JSON.parse(localStorage.getItem("ranking")||"[]");
+let playerName="";
+
+function updateRanking(){
+ scores=scores.filter(s=>s&&s.name&&s.score);
+ let t="🏆 Ranking<br>";
+ if(scores.length===0)t+="まだ記録なし";
+ else scores.slice(0,5).forEach((s,i)=>t+=`${i+1}. ${s.name}:Lv${s.score}<br>`);
+ document.getElementById("ranking").innerHTML=t;
+ localStorage.setItem("ranking",JSON.stringify(scores));
+}
+
+function getName(){
+ let v=document.getElementById("nameInput").value.trim();
+ if(v===""){
+  let n=1;while(scores.some(s=>s.name==="Player"+n))n++;
+  return"Player"+n;
+ }
+ if(scores.some(s=>s.name===v)){alert("同じ名前があります");return null;}
+ return v;
+}
 
 function startGame(){
+ let n=getName();
+ if(!n)return;
+ playerName=n;
+
  document.getElementById("startScreen").style.display="none";
  document.getElementById("gameScreen").style.display="block";
+
+ level=1;size=3;
  updateGame();
 }
 
@@ -103,7 +147,6 @@ function updateGame(){
  setTimeout(()=>{
 
   player=[];pattern=[];
-
   document.getElementById("level").innerText="Level "+level;
 
   game.innerHTML="";
@@ -136,10 +179,18 @@ function showPattern(){
 
  pattern.forEach(i=>cells[i].classList.add("active"));
 
+ let t=1500,start=Date.now();
+ clearInterval(timer);
+ timer=setInterval(()=>{
+  let r=Math.max(0,t-(Date.now()-start));
+  document.getElementById("countdown").innerText=(r/1000).toFixed(2);
+ },10);
+
  setTimeout(()=>{
   cells.forEach(c=>c.classList.remove("active"));
   showing=false;
- },1500);
+  document.getElementById("countdown").innerText="";
+ },t);
 }
 
 function clickCell(i,d){
@@ -149,17 +200,37 @@ function clickCell(i,d){
  d.classList.add("correct");
 
  if(!pattern.includes(i)){
-  alert("ゲームオーバー");
-  location.reload();
+  d.classList.add("wrong");
+  gameOver();
   return;
  }
 
  if(player.length===pattern.length){
   level++;
-  if(level%3===0)size++;
+  if(level%3===0)size=Math.min(size+1,7);
   setTimeout(updateGame,400);
  }
 }
+
+function gameOver(){
+ document.getElementById("gameScreen").style.display="none";
+ document.getElementById("gameOver").style.display="block";
+
+ document.getElementById("finalScore").innerText=
+  playerName+" のスコア: Lv "+level;
+
+ scores.push({name:playerName,score:level});
+ scores.sort((a,b)=>b.score-a.score);
+ updateRanking();
+}
+
+function goToStart(){
+ document.getElementById("gameOver").style.display="none";
+ document.getElementById("startScreen").style.display="block";
+ updateRanking();
+}
+
+updateRanking();
 </script>
 
 </body>
